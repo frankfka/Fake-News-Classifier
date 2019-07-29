@@ -36,8 +36,13 @@ def load_data():
     return json_df, articles_df
 
 
-trainable_df = pd.read_pickle(os.path.join(CURRENT_DIR, TRAINABLE_DATA_PICKLE))
-for idx, row in trainable_df.iterrows():
-    print(f"INDEX: {idx}")
-    print(row['claim'])
-    print(row['support'])
+# trainable_df = pd.read_pickle(os.path.join(CURRENT_DIR, TRAINABLE_DATA_PICKLE))
+# for idx, row in trainable_df.iterrows():
+#     print(f"INDEX: {idx}")
+#     print(row['claim'])
+#     print(row['support'])
+
+json_df, articles_df = load_data()
+trainable_df = get_trainable_df(json_df, articles_df)
+trainable_df.to_pickle(os.path.join(CURRENT_DIR, TRAINABLE_DATA_PICKLE))
+print(trainable_df.head())

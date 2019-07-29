@@ -18,8 +18,6 @@ def get_trainable_df(json_df, articles_df):
     # Loop over each claim and its metadata
     for index, json_data in json_df.iterrows():
         print(f"Processing Claim {index}")
-        if index == 50:
-            break
         '''
         Extract basic data from json data
         '''
