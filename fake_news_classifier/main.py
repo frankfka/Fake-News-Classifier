@@ -1,25 +1,10 @@
 import os
 import pandas as pd
 import spacy
-from keras import Sequential, Model
-from keras.layers import LSTM, Dense, Concatenate
-from keras.utils import to_categorical
-from keras_preprocessing.sequence import pad_sequences
 import matplotlib.pyplot as plt
 
 import fake_news_classifier.util.io_util as io_util
-
-CURRENT_DIR = os.getcwd()
-
-RELATIVE_DATA_DIR = '../data/'
-MASTER_JSON_FILE_NAME = 'train.json'
-ARTICLES_FOLDER_NAME = 'train_articles'
-
-JSON_DATA_PICKLE = 'checkpoints/json_data.pkl'
-ARTICLES_DATA_PICKLE = 'checkpoints/articles_data.pkl'
-
-TRAINABLE_DATA_PICKLE = 'checkpoints/trainable_data.pkl'
-TRAINABLE_VECTORIZED_DATA_PICKLE = 'checkpoints/trainable_vectorized_data.pkl'
+import fake_news_classifier.model.two_to_one_lstm as two_to_one_lstm
 
 
 def load_data():
@@ -41,9 +26,22 @@ def load_data():
     json_df = io_util.load_json_data(pickle_path=json_pickle_path)
     articles_df = io_util.load_article_data(pickle_path=articles_pickle_path)
 
-    # Trim to first 5000 entries
-    json_df = json_df.iloc[0:5000, :]
+    # Trim to 5000 entries
+    json_df = json_df.iloc[10001:15000, :]
     return json_df, articles_df
+
+
+def get_vectorized_trainable_df(trainable_df, spacy_nlp):
+    """
+    Given a trainable DF (claim, support, label), create a DF that vectorizes claim and support strings
+    """
+    claims = trainable_df.loc[:, 'claim']
+    supporting_evidence = trainable_df.loc[:, 'support']
+    labels = trainable_df.loc[:, 'label']
+
+    vector_claims = [vectorize(claim, spacy_nlp) for claim in claims]
+    vector_support = [vectorize(support, spacy_nlp) for support in supporting_evidence]
+    return pd.DataFrame(data={"claim": vector_claims, "support": vector_support, "label": labels})
 
 
 def vectorize(text, nlp):
@@ -53,83 +51,93 @@ def vectorize(text, nlp):
     spacy_doc = nlp(text)
     return [token.vector for token in spacy_doc]
 
+
+# Normalize all the counts
+def normalize_claim_counts(df):
+    """
+    Strips out extra claims so we have a balanced dataset - i.e. # of labels for 0,1,2 are the same
+    """
+    true_claims = df[df['label'] == 2]
+    neutral_claims = df[df['label'] == 1]
+    false_claims = df[df['label'] == 0]
+    max_index = min([
+        len(true_claims.index),
+        len(neutral_claims.index),
+        len(false_claims.index),
+    ])
+    return pd.concat([
+        true_claims[0: max_index],
+        neutral_claims[0: max_index],
+        false_claims[0: max_index]
+    ]).sample(frac=1)  # This shuffles
+
+
+def plot_history(training_history, with_validation):
+    # Accuracy Plot
+    plt.plot(training_history.history['acc'])
+    if with_validation:
+        plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+
+    # Loss Plot
+    plt.plot(training_history.history['loss'])
+    if with_validation:
+        plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['Train', 'Validation'], loc='upper left')
+    plt.show()
+
+
+CURRENT_DIR = os.getcwd()
+
+RELATIVE_DATA_DIR = '../data/'
+MASTER_JSON_FILE_NAME = 'train.json'
+ARTICLES_FOLDER_NAME = 'train_articles'
+
+JSON_DATA_PICKLE = 'checkpoints/json_data.pkl'
+ARTICLES_DATA_PICKLE = 'checkpoints/articles_data.pkl'
+
+TRAINABLE_DATA_PICKLE = 'checkpoints/trainable_data_10000_15000.pkl'
+TRAINABLE_VECTORIZED_DATA_PICKLE = 'checkpoints/trainable_vectorized_data.pkl'
+
+# Uncomment below if vectorizing/creating trainable DF
+# spacy_nlp = spacy.load('en_core_web_md')
+
+'''
+Load JSON and Articles data as separate DF's and create a trainable DF
+'''
 # json_df, articles_df = load_data()
-# trainable_df = get_trainable_df(json_df, articles_df)
+# trainable_df = get_trainable_df(json_df, articles_df, spacy_nlp)
 # trainable_df.to_pickle(os.path.join(CURRENT_DIR, TRAINABLE_DATA_PICKLE))
 # print(trainable_df.head())
 
-
-MAX_SEQ_LEN = 500  # Maximum word length of each support/claim - sequences will be padded to this length
-WORD_VECTOR_SIZE = 300  # Size of each word vector
-
-trainable_df = pd.read_pickle(os.path.join(CURRENT_DIR, TRAINABLE_DATA_PICKLE))
-claims = trainable_df.loc[:, 'claim']
-supporting_evidence = trainable_df.loc[:, 'support']
-labels = trainable_df.loc[:, 'label']
-
-spacy_nlp = spacy.load('en_core_web_md')
-
-print('Vectorizing')
-vector_claims = [vectorize(claim, spacy_nlp) for claim in claims]
-vector_support = [vectorize(support, spacy_nlp) for support in supporting_evidence]
-vectorized_trainable_df = pd.DataFrame(data={"claim": vector_claims, "support": vector_support, "label": labels})
-vectorized_trainable_df.to_pickle(os.path.join(CURRENT_DIR, TRAINABLE_VECTORIZED_DATA_PICKLE))
-
-print('Padding Sequences')
-vector_claims = pad_sequences(vector_claims, maxlen=MAX_SEQ_LEN, truncating='post', padding='post', dtype='float32')
-vector_support = pad_sequences(vector_support, maxlen=MAX_SEQ_LEN, truncating='post', padding='post', dtype='float32')
-categorical_labels = to_categorical(labels, num_classes=3)
+'''
+Load Trainable DF and vectorize it
+'''
+# trainable_df = pd.read_pickle(os.path.join(CURRENT_DIR, TRAINABLE_DATA_PICKLE))
+# vectorized_trainable_df = get_vectorized_trainable_df(trainable_df, spacy_nlp)
+# vectorized_trainable_df.to_pickle(os.path.join(CURRENT_DIR, TRAINABLE_VECTORIZED_DATA_PICKLE))
 
 '''
-Define LSTM for Claims
+Load Vectorized DF
 '''
-claims_input_model = Sequential()
-claims_input_model.add(LSTM(units=64, input_shape=(MAX_SEQ_LEN, WORD_VECTOR_SIZE), dropout=0.3, recurrent_dropout=0.3))
-claims_input_model.add(Dense(32, activation='relu'))
-# Batch normalization?
+vectorized_trainable_df = pd.read_pickle(os.path.join(CURRENT_DIR, TRAINABLE_VECTORIZED_DATA_PICKLE))
+print(len(vectorized_trainable_df.index))
+normalized_vec_trainable_df = normalize_claim_counts(vectorized_trainable_df)
+
+vector_claims = normalized_vec_trainable_df.loc[:, 'claim']
+vector_support = normalized_vec_trainable_df.loc[:, 'support']
+labels = normalized_vec_trainable_df.loc[:, 'label']
+
 
 '''
-Define LSTM for Support
+Train Model
 '''
-support_input_model = Sequential()
-support_input_model.add(LSTM(units=64, input_shape=(MAX_SEQ_LEN, WORD_VECTOR_SIZE), dropout=0.3, recurrent_dropout=0.3))
-support_input_model.add(Dense(32, activation='relu'))
-
-'''
-Define Model After Concatenating support + claim
-'''
-mergedModel = Concatenate()([claims_input_model.output, support_input_model.output])
-mergedModel = Dense(8, activation='relu')(mergedModel)
-mergedModel = Dense(3, activation='softmax')(mergedModel)
-
-'''
-Define the entire model from sub-models
-'''
-complete_model = Model([claims_input_model.input, support_input_model.input], mergedModel)
-complete_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-complete_model.summary()
-history = complete_model.fit(
-    [vector_claims, vector_support],
-    categorical_labels,
-    batch_size=1, epochs=100, verbose=1, validation_split=0.2
-)
-
-# list all data in history
-print(history.history.keys())
-# summarize history for accuracy
-plt.plot(history.history['acc'])
-# plt.plot(history.history['val_acc'])
-plt.title('model accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'test'], loc='upper left')
-plt.show()
-# summarize history for loss
-plt.plot(history.history['loss'])
-# plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['Train', 'Validation'], loc='upper left')
-plt.show()
-
+history = two_to_one_lstm.train(vector_claims, vector_support, labels)
+plot_history(history, True)

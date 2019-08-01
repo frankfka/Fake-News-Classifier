@@ -3,13 +3,13 @@ import spacy
 import re
 from nltk import sent_tokenize
 
+# TODO: Enforce a maximum sentence length in the case of weird documents -> split them into individual sentences
 
-def get_trainable_df(json_df, articles_df):
+def get_trainable_df(json_df, articles_df, spacy_nlp):
     """
     Expects as input the output of our data loader (json df and articles df)
     Creates a DF that has the columns: claim, support (i.e. supporting text), and label
     """
-    spacy_nlp = spacy.load('en_core_web_md')  # Use python -m spacy download en_core_web_md
     # Arrays to create the DF from
     claims = []
     supporting_info = []
