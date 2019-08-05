@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 
 import fake_news_classifier.util.io_util as io_util
 import fake_news_classifier.model.two_to_one_lstm as two_to_one_lstm
+import fake_news_classifier.model.single_input_lstm as single_input_lstm
+import fake_news_classifier.model.two_to_one_seq2seq_lstm as two_to_one_seq2seq_lstm
+import fake_news_classifier.model.two_to_one_nodense_lstm as two_to_one_nodense_lstm
+from fake_news_classifier.model import two_to_one_seq2seq_lstm_2
 
 
 def load_data():
@@ -93,7 +97,6 @@ def plot_history(training_history, with_validation):
     plt.legend(['Train', 'Validation'], loc='upper left')
     plt.show()
 
-
 CURRENT_DIR = os.getcwd()
 
 RELATIVE_DATA_DIR = '../data/'
@@ -128,7 +131,8 @@ Load Trainable DF and vectorize it
 Load Vectorized DF
 '''
 vectorized_trainable_df = pd.read_pickle(os.path.join(CURRENT_DIR, TRAINABLE_VECTORIZED_DATA_PICKLE))
-print(len(vectorized_trainable_df.index))
+print(f"Number of initial data points: {len(vectorized_trainable_df.index)}")
+print(vectorized_trainable_df['label'].value_counts())
 normalized_vec_trainable_df = normalize_claim_counts(vectorized_trainable_df)
 
 vector_claims = normalized_vec_trainable_df.loc[:, 'claim']
@@ -139,5 +143,5 @@ labels = normalized_vec_trainable_df.loc[:, 'label']
 '''
 Train Model
 '''
-history = two_to_one_lstm.train(vector_claims, vector_support, labels)
+history = single_input_lstm.train(vector_claims, vector_support, labels)
 plot_history(history, True)
