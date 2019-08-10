@@ -1,6 +1,7 @@
 # Project Specific
 data/
 *.pkl
+*.bin.gz
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

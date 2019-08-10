@@ -6,14 +6,12 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
+gensim = "*"
+pandas = "*"
 keras = "*"
 tensorflow = "*"
-nltk = "*"
-pandas = "*"
 scikit-learn = "*"
-scipy = "*"
-numpy = "*"
-spacy = "*"
+nltk = "*"
 matplotlib = "*"
 
 [requires]
