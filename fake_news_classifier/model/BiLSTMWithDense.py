@@ -4,7 +4,6 @@ from keras.layers import Bidirectional, LSTM, BatchNormalization, Concatenate, D
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from keras_preprocessing.sequence import pad_sequences
-import numpy as np
 
 from fake_news_classifier.const import LABEL_IDX, TEXT_TWO_IDX, TEXT_ONE_IDX
 from fake_news_classifier.model.FNCModel import FNCModel
@@ -56,6 +55,12 @@ class BiLSTMWithDense(FNCModel):
     Arguments (Predict):
         - Verbosity - default 1
         - Batch size - default 32
+
+    # TODO: Things to try:
+        - Regularization
+        - Dropout
+        - Depth/Width
+        - Learning rate
     """
 
     def __init__(self, args, name='BiLSTMWithDense'):

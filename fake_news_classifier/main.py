@@ -56,7 +56,7 @@ def load_batch(fnc_data, idx):
     })
 
 
-# Build, Train, and Evaluate Model
+# Build, Train, and Evaluate Model - Returns incorrect (idx, prediction) from test set
 def build_train_eval(train_df, test_df):
     # Build Model
     model_args = {
@@ -73,6 +73,13 @@ def build_train_eval(train_df, test_df):
     y_val_pred = categorical_to_idx(y_val_pred)
     plot_keras_history(history, True)
     eval_predictions(y_true=y_val_true, y_pred=y_val_pred, print_results=True)
+
+    # See which indicies were not predicted correctly, return (idx, predicted) for future processing
+    incorrect_idx = []
+    for i, (y_pred, y_true) in enumerate(zip(y_val_pred, y_val_true)):
+        if y_pred != y_true:
+            incorrect_idx.append((i, y_pred))
+    return incorrect_idx
 
 
 checkpoint_time = time.time()
@@ -97,7 +104,16 @@ for fold, (train_idx, test_idx) in enumerate(k_fold(data, k=5)):
     train_data = load_batch(data, train_idx)
     test_data = load_batch(data, test_idx)
 
-    build_train_eval(train_df=train_data, test_df=test_data)
+    # Train, eval model, then get the failed indicies and save them for processing
+    failures = build_train_eval(train_df=train_data, test_df=test_data)
+    fail_idx, fail_pred = zip(*failures)
+    fail_txt, fail_other_txt, true_labels = data.get(idx=test_idx).loc[fail_idx, :]
+    pd.DataFrame(data={
+        const.TEXT_ONE_IDX: fail_txt,
+        const.TEXT_TWO_IDX: fail_other_txt,
+        'true_label': true_labels,
+        'pred_label': fail_pred
+    }).to_csv(f"BiLSTMDense_Failed_Fold{fold}")
 
     now = time.time()
     log(f"Fold {fold} completed in {now - checkpoint_time} seconds")
