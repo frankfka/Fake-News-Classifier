@@ -4,13 +4,12 @@ from keras.layers import Bidirectional, LSTM, BatchNormalization, Concatenate, D
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from keras_preprocessing.sequence import pad_sequences
+import numpy as np
 
+from fake_news_classifier.const import LABEL_IDX, TEXT_TWO_IDX, TEXT_ONE_IDX
 from fake_news_classifier.model.FNCModel import FNCModel
-from fake_news_classifier.util.misc import get_class_weights, get_tb_logdir, log
-
-TEXT_ONE_IDX = 'text_1'  # Claims + potentially other metadata
-TEXT_TWO_IDX = 'text_2'
-LABEL_IDX = 'label'
+from fake_news_classifier.model.util import get_class_weights
+from fake_news_classifier.util import get_tb_logdir, log
 
 # Arguments: Init
 SEQ_LEN = 'seq_len'
@@ -51,7 +50,7 @@ class BiLSTMWithDense(FNCModel):
         - Validation split - default 0.2
         - Whether to save logs - default False
         - Number of epochs - default 25
-        - Verbosity - default 1
+        - Verbosity - default 2 (one line per epoch)
         - Batch size - default 32
 
     Arguments (Predict):
@@ -109,7 +108,7 @@ class BiLSTMWithDense(FNCModel):
         val_split = train_args.get(VAL_SPLIT, 0.2)
         batch_size = train_args.get(BATCH_SIZE, 32)
         epochs = train_args.get(NUM_EPOCHS, 25)
-        verbose = train_args.get(VERBOSE, 1)
+        verbose = train_args.get(VERBOSE, 2)
         # Input data
         texts = data[TEXT_ONE_IDX]
         other_texts = data[TEXT_TWO_IDX]

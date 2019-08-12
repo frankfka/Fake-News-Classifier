@@ -2,7 +2,7 @@ import gensim
 import time
 import numpy as np
 from fake_news_classifier.preprocessing.text_util import tokenize_by_word
-from fake_news_classifier.util.misc import log
+from fake_news_classifier.util import log
 
 DEFAULT_MAX_SEQ_LEN = 500
 

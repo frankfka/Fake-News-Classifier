@@ -1,10 +1,7 @@
 import pandas as pd
 
-from fake_news_classifier.util.misc import log
-
-TEXT_ONE_IDX = 'text_1'
-TEXT_TWO_IDX = 'text_2'
-LABEL_IDX = 'label'
+from fake_news_classifier.const import TEXT_TWO_IDX, TEXT_ONE_IDX, LABEL_IDX
+from fake_news_classifier.util import log
 
 
 class FNCData(object):
@@ -23,7 +20,7 @@ class FNCData(object):
         })
         self.vectorizer = vectorizer
         self.max_seq_len = max_seq_len
-        log(f"FNCData label counts: {self.data[LABEL_IDX].value_counts()}")
+        log(f"FNCData label counts: \n{self.data[LABEL_IDX].value_counts()}")
         log("FNCData Initialized")
 
     # Get data (text, other_text, labels)
@@ -51,5 +48,14 @@ class FNCData(object):
 
 
 if __name__ == '__main__':
-    pass
-    # TODO: Test this method
+    from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
+    v = GoogleNewsVectorizer(path='./assets/GoogleNews-vectors-negative300.bin.gz')
+
+    one_list = ["hello hello hellohello hello hello hello", "bye bye bye bye bye bye bye bye bye bye bye "]
+    other_list = ["hello hello hello hello hello hello hello", "bye bye bye bye bye bye bye bye bye bye bye "]
+
+    data = FNCData(one_list, other_list, [0, 0], v, 500)
+    vec_txt, vec_other_txt, labels = data.get(vectorize=True)
+
+    print(f"Vec Text: {len(vec_txt)} x {len(vec_txt[0])} x {len(vec_txt[0][0])}")
+    print(labels)
