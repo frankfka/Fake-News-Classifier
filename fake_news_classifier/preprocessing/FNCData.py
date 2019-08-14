@@ -4,6 +4,34 @@ from fake_news_classifier.const import TEXT_TWO_IDX, TEXT_ONE_IDX, LABEL_IDX
 from fake_news_classifier.util import log
 
 
+# Balances class data to be equal
+def balance_classes(df, max_bias=1):
+    # Filter by label
+    true_claims = df[df[LABEL_IDX] == 2]
+    neutral_claims = df[df[LABEL_IDX] == 1]
+    false_claims = df[df[LABEL_IDX] == 0]
+    # Get the least # of counts
+    max_index = min([
+        len(true_claims.index),
+        len(neutral_claims.index),
+        len(false_claims.index),
+    ])
+    # Get the max # given the bias and the max possible index
+    max_index_biased = int(max_bias * max_index)
+    # Truncate to the maximum length
+    if len(true_claims.index) > max_index_biased:
+        true_claims = true_claims[0:max_index_biased]
+    if len(neutral_claims.index) > max_index_biased:
+        neutral_claims = neutral_claims[0:max_index_biased]
+    if len(false_claims.index) > max_index_biased:
+        false_claims = false_claims[0:max_index_biased]
+    return pd.concat([
+        true_claims,
+        neutral_claims,
+        false_claims
+    ]).sample(frac=1)  # This shuffles
+
+
 class FNCData(object):
     """
     Contains Data from the FNC dataset
@@ -12,7 +40,7 @@ class FNCData(object):
     - Usually, body1 should be the claim, but this is meant to be universal
     """
 
-    def __init__(self, list_of_txt, other_list_of_txt, list_of_labels, vectorizer, max_seq_len):
+    def __init__(self, list_of_txt, other_list_of_txt, list_of_labels, vectorizer, max_seq_len, max_label_bias=None):
         self.data = pd.DataFrame(data={
             TEXT_ONE_IDX: list_of_txt,
             TEXT_TWO_IDX: other_list_of_txt,
@@ -21,6 +49,10 @@ class FNCData(object):
         self.vectorizer = vectorizer
         self.max_seq_len = max_seq_len
         log(f"FNCData label counts: \n{self.data[LABEL_IDX].value_counts()}")
+        if max_label_bias is not None:
+            self.data = balance_classes(self.data, max_label_bias)
+            log(f"FNCData labels balanced with max bias {max_label_bias}. " +
+                f"New label counts: \n{self.data[LABEL_IDX].value_counts()}")
         log("FNCData Initialized")
 
     # Get data (text, other_text, labels)

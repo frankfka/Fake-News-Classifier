@@ -2,7 +2,7 @@ import time
 
 import pandas as pd
 
-import fake_news_classifier.model.BiLSTMWithDense as model
+import fake_news_classifier.model.CLSTMWithDense as model
 import fake_news_classifier.const as const
 from fake_news_classifier.model.util import plot_keras_history, categorical_to_idx, eval_predictions, k_fold_indicies
 from fake_news_classifier.preprocessing.FNCData import FNCData
@@ -17,26 +17,29 @@ def load_raw_data(json_pkl_path, articles_pkl_path):
 
 
 # Preprocess data, returns FNCData object
-def preprocess(json_data, articles_data, vectorizer, max_seq_len):
+def preprocess(json_data, articles_data, vectorizer, max_seq_len, max_label_bias):
     texts, other_texts, labels = preprocess_nn(json_data, articles_data, vectorizer, max_seq_len=max_seq_len)
     return FNCData(
         list_of_txt=texts,
         other_list_of_txt=other_texts,
         list_of_labels=labels,
         vectorizer=vectorizer,
-        max_seq_len=500
+        max_seq_len=500,
+        max_label_bias=max_label_bias
     )
 
 
 # Load preprocessed data, returns FNCData object
-def load_preprocessed(pkl_path, vectorizer, max_seq_len):
-    df = pd.read_pickle(pkl_path)
+def load_preprocessed(pkl_path, vectorizer, max_seq_len, max_label_bias):
+    # Shuffle and just take 5000 for now to tune model
+    df = pd.read_pickle(pkl_path) #.sample(frac=1).reset_index(drop=True).loc[0:5000, :]
     return FNCData(
         list_of_txt=df[const.TEXT_ONE_IDX],
         other_list_of_txt=df[const.TEXT_TWO_IDX],
         list_of_labels=df[const.LABEL_IDX],
         vectorizer=vectorizer,
-        max_seq_len=max_seq_len
+        max_seq_len=max_seq_len,
+        max_label_bias=max_label_bias
     )
 
 
@@ -61,15 +64,22 @@ def build_train_eval(train_df, test_df):
     # Build Model
     model_args = {
         model.SEQ_LEN: 500,
-        model.EMB_DIM: 300
+        model.EMB_DIM: 300,
+        model.CONV_KERNEL_SIZE: 5,
+        model.DENSE_UNITS: 256
     }
-    bi_lstm = model.BiLSTMWithDense(model_args)
+    nn = model.CLSTMWithDense(model_args)
     # Train model
-    history = bi_lstm.train(data=train_df, train_args={})
+    train_args = {
+        model.BATCH_SIZE: 128,
+        model.NUM_EPOCHS: 30,
+        model.EARLY_STOP: True
+    }
+    history = nn.train(data=train_df, train_args=train_args)
 
     # Evaluate
     y_val_true = test_df[const.LABEL_IDX]
-    y_val_pred = bi_lstm.predict(test_df, predict_args={})
+    y_val_pred = nn.predict(test_df, predict_args={})
     y_val_pred = categorical_to_idx(y_val_pred)
     plot_keras_history(history, True)
     eval_predictions(y_true=y_val_true, y_pred=y_val_pred, print_results=True)
@@ -89,7 +99,8 @@ v = GoogleNewsVectorizer()
 data = load_preprocessed(
     pkl_path='./data/train_data_all.pkl',
     vectorizer=v,
-    max_seq_len=500
+    max_seq_len=500,
+    max_label_bias=2
 )
 
 now = time.time()
@@ -107,13 +118,13 @@ for fold, (train_idx, test_idx) in enumerate(k_fold(data, k=5)):
     # Train, eval model, then get the failed indicies and save them for processing
     failures = build_train_eval(train_df=train_data, test_df=test_data)
     fail_idx, fail_pred = zip(*failures)
-    fail_txt, fail_other_txt, true_labels = data.get(idx=test_idx).loc[fail_idx, :]
+    fail_txt, fail_other_txt, true_labels = data.get(idx=[test_idx[i] for i in fail_idx])
     pd.DataFrame(data={
         const.TEXT_ONE_IDX: fail_txt,
         const.TEXT_TWO_IDX: fail_other_txt,
         'true_label': true_labels,
         'pred_label': fail_pred
-    }).to_csv(f"BiLSTMDense_Failed_Fold{fold}")
+    }).to_csv(f"CLSTMDense_Failed_Fold{fold}.csv")
 
     now = time.time()
     log(f"Fold {fold} completed in {now - checkpoint_time} seconds")

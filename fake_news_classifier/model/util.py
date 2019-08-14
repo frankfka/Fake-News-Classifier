@@ -92,7 +92,7 @@ def eval_predictions(y_true, y_pred, print_results=False):
         y_true=y_true,
         y_pred=y_pred,
         normalize=True,
-        classes=['agree', 'disagree', 'discuss']
+        classes=['disagree (0)', 'discuss (1)', 'agree (2)']
     )
     # TODO: Precision, recall, return results in a dict
     accuracy = accuracy_score(y_true=y_true, y_pred=y_pred)

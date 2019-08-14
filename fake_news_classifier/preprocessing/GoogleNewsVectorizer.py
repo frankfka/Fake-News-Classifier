@@ -29,6 +29,9 @@ class GoogleNewsVectorizer(object):
         return [self.get_word_vec(word) for word in words]
 
     def get_word_vec(self, word):
+        # TODO: Need to remove punctuation
+        # TODO: Support for bi- and tri-grams: https://code.google.com/archive/p/word2vec/
+        # TODO: Integrate entity vectors?
         # Best possible case - word in model, return that vector
         if word in self.model.vocab:
             return self.model[word]

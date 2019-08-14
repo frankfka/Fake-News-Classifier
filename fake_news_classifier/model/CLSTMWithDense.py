@@ -1,5 +1,5 @@
 from keras import Sequential, Model
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, EarlyStopping
 from keras.layers import Bidirectional, LSTM, BatchNormalization, Concatenate, Dense, Dropout, MaxPooling1D, Conv1D
 from keras.optimizers import Adam
 from keras.utils import to_categorical
@@ -21,6 +21,7 @@ DENSE_UNITS = 'dense_units'
 # Arguments: Train/Predict
 VAL_SPLIT = 'val_split'
 SAVE_LOGS = 'save_logs'
+EARLY_STOP = 'early_stop'
 NUM_EPOCHS = 'num_epochs'
 VERBOSE = 'verbose'
 BATCH_SIZE = 'batch_size'
@@ -51,7 +52,8 @@ def get_input_nn(input_shape, dropout, num_lstm_units, num_conv_units, conv_kern
 
 class CLSTMWithDense(FNCModel):
     """
-    Two bidirectional LSTM input neurons -> Concatenation -> Normalization -> 2 Dense -> Output Dense -> Softmax
+    Two Inputs (CNN -> Dropout -> MaxPool -> LSTM)
+     -> Concatenation -> Normalization -> 2 Dense -> Output Dense -> Softmax
     Arguments (Init):
         - Sequence Length (required)
         - Embedding dimension (required)
@@ -64,6 +66,7 @@ class CLSTMWithDense(FNCModel):
     Arguments (Train):
         - Validation split - default 0.2
         - Whether to save logs - default False
+        - Whether to stop early when validation loss stops decreasing - default False
         - Number of epochs - default 25
         - Verbosity - default 2 (one line per epoch)
         - Batch size - default 32
@@ -74,9 +77,15 @@ class CLSTMWithDense(FNCModel):
 
     # TODO: Things to try:
         - Regularization
-        - Dropout
+        - Pooling?
         - Depth/Width
+            - Conv: Increase units to 512, 1024
+            - Try adding a conv layer
+            - LSTM: Try 256, 64, 32
+            - Try adding an LSTM layer
+            - Dense: try 512, 32
         - Learning rate
+            - 0.01, 0.1, 0.005
     """
 
     def __init__(self, args, name='CLSTMWithDense'):
@@ -134,8 +143,9 @@ class CLSTMWithDense(FNCModel):
     def train(self, data, train_args):
         # Args
         save_logs = train_args.get(SAVE_LOGS, False)
+        early_stop = train_args.get(EARLY_STOP, False)
         val_split = train_args.get(VAL_SPLIT, 0.2)
-        batch_size = train_args.get(BATCH_SIZE, 32)
+        batch_size = train_args.get(BATCH_SIZE, 64)
         epochs = train_args.get(NUM_EPOCHS, 25)
         verbose = train_args.get(VERBOSE, 2)
         # Input data
@@ -154,6 +164,8 @@ class CLSTMWithDense(FNCModel):
         callbacks = []
         if save_logs:
             callbacks.append(TensorBoard(log_dir=get_tb_logdir(self.log_name)))
+        if early_stop:
+            callbacks.append(EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=3))
         return self.model.fit(
             [texts, other_texts],
             labels,

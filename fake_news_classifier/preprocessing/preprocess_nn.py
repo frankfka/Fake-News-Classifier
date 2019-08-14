@@ -17,6 +17,7 @@ If the dataset changes, only the preprocessors need to change.
 def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
     """
     Given the raw FNC data, return 3 lists of (text, other_text (supporting info), and labels)
+    TODO: Need to add in claimant
     """
     claims = json_df[const.PKL_CLAIM]
     labels = json_df[const.PKL_LABEL]
@@ -51,8 +52,12 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
     - Maintains upper/lowercase
 
 
+    - TODO: Need to clean the claim as well for vectorization (remove punctuation)
+    - TODO: Incorporate claimant too
     - TODO: Process long sentences by splitting them up
     - TODO: Similarity by checking for named entities, numbers
+        - Analyze for number, named entities
+        - If contains the number/named entity, average sent sim with 1
     - TODO: Additional text cleaning, like lemmatization? Remove stopwords?
     """
     vec_claim = vectorizer.transform_one(claim)  # Claim vector - we'll use this to compare using cosine similarity

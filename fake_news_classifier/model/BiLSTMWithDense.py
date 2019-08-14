@@ -1,6 +1,7 @@
 from keras import Sequential, Model
 from keras.callbacks import TensorBoard
-from keras.layers import Bidirectional, LSTM, BatchNormalization, Concatenate, Dense
+from keras.layers import Bidirectional, LSTM, BatchNormalization, Concatenate, Dense, Dropout
+from keras import regularizers
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from keras_preprocessing.sequence import pad_sequences
@@ -22,13 +23,20 @@ SAVE_LOGS = 'save_logs'
 NUM_EPOCHS = 'num_epochs'
 VERBOSE = 'verbose'
 BATCH_SIZE = 'batch_size'
+DENSE_REGULARIZER = 'dense_regularizer'
+LSTM_REGULARIZER = 'lstm_regularizer'
 
 
 # Input LSTM unit - create one for each of the text inputs
-def get_input_lstm(input_shape, dropout, num_units):
+def get_input_lstm(input_shape, dropout, regularization, num_units):
     input_lstm = Sequential()
     lstm_1 = Bidirectional(
-        LSTM(units=num_units, dropout=dropout, recurrent_dropout=dropout),
+        LSTM(
+            units=num_units,
+            dropout=dropout,
+            recurrent_dropout=dropout,
+            kernel_regularizer=regularizers.l2(regularization)
+        ),
         input_shape=input_shape
     )
     input_lstm.add(lstm_1)
@@ -69,33 +77,50 @@ class BiLSTMWithDense(FNCModel):
         # Get args for building the model, default to some accepted parameters
         seq_len = self.args.get(SEQ_LEN)
         emb_dim = self.args.get(EMB_DIM)
-        dropout = self.args.get(DROPOUT, 0.5)
+        dropout = self.args.get(DROPOUT, 0.2)
+        # TODO: On next train: try regularization, increase dropout
         lstm_num_units = self.args.get(LSTM_UNITS, 128)
-        dense_num_hidden = self.args.get(DENSE_UNITS, 64)
+        dense_num_hidden = self.args.get(DENSE_UNITS, 128)
+        dense_regularizer = self.args.get(DENSE_REGULARIZER, 0)#0.001)
+        lstm_regularizer = self.args.get(LSTM_REGULARIZER, 0)#1e-6)
 
         input_shape = (seq_len, emb_dim)
 
         text_one_lstm = get_input_lstm(
             input_shape=input_shape,
             dropout=dropout,
-            num_units=lstm_num_units
+            num_units=lstm_num_units,
+            regularization=lstm_regularizer
         )
         text_two_lstm = get_input_lstm(
             input_shape=input_shape,
             dropout=dropout,
-            num_units=lstm_num_units
+            num_units=lstm_num_units,
+            regularization=lstm_regularizer
         )
 
         merged_mlp = Concatenate()([text_one_lstm.output, text_two_lstm.output])
         merged_mlp = BatchNormalization()(merged_mlp)
-        merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
-        merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
+        merged_mlp = Dropout(dropout)(merged_mlp)
+        merged_mlp = Dense(
+            dense_num_hidden,
+            activation='relu',
+            kernel_regularizer=regularizers.l2(dense_regularizer),
+            bias_regularizer=regularizers.l2(dense_regularizer)
+        )(merged_mlp)
+        merged_mlp = Dropout(dropout)(merged_mlp)
+        merged_mlp = Dense(
+            dense_num_hidden,
+            activation='relu',
+            kernel_regularizer=regularizers.l2(dense_regularizer),
+            bias_regularizer=regularizers.l2(dense_regularizer)
+        )(merged_mlp)
         merged_mlp = Dense(3, activation='softmax')(merged_mlp)
 
         complete_model = Model([text_one_lstm.input, text_two_lstm.input], merged_mlp)
 
         # Create the optimizer
-        optimizer = Adam()
+        optimizer = Adam(lr=0.005)
 
         complete_model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
         complete_model.summary()
@@ -111,9 +136,9 @@ class BiLSTMWithDense(FNCModel):
         # Args
         save_logs = train_args.get(SAVE_LOGS, False)
         val_split = train_args.get(VAL_SPLIT, 0.2)
-        batch_size = train_args.get(BATCH_SIZE, 32)
+        batch_size = train_args.get(BATCH_SIZE, 64)
         epochs = train_args.get(NUM_EPOCHS, 25)
-        verbose = train_args.get(VERBOSE, 2)
+        verbose = train_args.get(VERBOSE, 1)
         # Input data
         texts = data[TEXT_ONE_IDX]
         other_texts = data[TEXT_TWO_IDX]
