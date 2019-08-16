@@ -86,13 +86,13 @@ def plot_confusion_matrix(y_true, y_pred, classes,
 
 # Returns useful metrics in a dict, logs if asked
 # Accuracy, F1 Micro, F1 Macro, F1 Weighted, Confusion matrix
-def eval_predictions(y_true, y_pred, print_results=False):
+def eval_predictions(y_true, y_pred, classes, print_results=False):
     # Plot confusion matrix
     plot_confusion_matrix(
         y_true=y_true,
         y_pred=y_pred,
         normalize=True,
-        classes=['disagree (0)', 'discuss (1)', 'agree (2)']
+        classes=classes
     )
     # TODO: Precision, recall, return results in a dict
     accuracy = accuracy_score(y_true=y_true, y_pred=y_pred)

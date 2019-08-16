@@ -82,7 +82,8 @@ def build_train_eval(train_df, test_df):
     y_val_pred = nn.predict(test_df, predict_args={})
     y_val_pred = categorical_to_idx(y_val_pred)
     plot_keras_history(history, True)
-    eval_predictions(y_true=y_val_true, y_pred=y_val_pred, print_results=True)
+    eval_predictions(y_true=y_val_true, y_pred=y_val_pred,
+                     classes=['disagree (0)', 'discuss (1)', 'agree (2)'], print_results=True)
 
     # See which indicies were not predicted correctly, return (idx, predicted) for future processing
     incorrect_idx = []

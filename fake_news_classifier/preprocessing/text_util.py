@@ -5,19 +5,7 @@ from nltk.corpus import wordnet as wn
 from nltk import WordNetLemmatizer, pos_tag, word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 
-
 nltk.download('popular')
-
-
-# Cleans sentence for processing
-def clean_sent(txt):
-    """
-    Cleans a string for processing - should be used for sentences since punctuation is removed
-    - Replace non alphanumeric with whitespace
-    - To lowercase
-    - Trim whitespace
-    """
-    return re.sub(r'\W+', ' ', txt).lower().strip()
 
 
 # Tokenize by Word
@@ -30,12 +18,29 @@ def tokenize_by_sentence(text):
     return sent_tokenize(text)
 
 
+# Cleans sentence for processing
+def clean_sentence(
+        txt,
+        remove_stopwords=False,
+        remove_punctuation=False,
+        lowercase=False
+):
+    tokens = tokenize_by_word(text=txt)
+    tokens = clean_tokenized(
+        tokens,
+        remove_stopwords=remove_stopwords,
+        remove_punctuation=remove_punctuation,
+        lowercase=lowercase
+    )
+    return ' '.join(tokens)
+
+
 # Cleans a word-tokenized document with given options
 def clean_tokenized(
         tokenized,
-        remove_stopwords=True,
-        remove_punctuation=True,
-        lowercase=True
+        remove_stopwords=False,
+        remove_punctuation=False,
+        lowercase=False
 ):
     set_to_remove = set()  # Set of strings to remove from tokenized words list
 

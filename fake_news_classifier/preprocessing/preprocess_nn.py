@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 import fake_news_classifier.const as const
-from fake_news_classifier.preprocessing.text_util import tokenize_by_sent, tokenize_by_word
+from fake_news_classifier.preprocessing.text_util import tokenize_by_sent, tokenize_by_word, clean_sentence
 from fake_news_classifier.util import log
 
 """
@@ -17,16 +17,16 @@ If the dataset changes, only the preprocessors need to change.
 def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
     """
     Given the raw FNC data, return 3 lists of (text, other_text (supporting info), and labels)
-    TODO: Need to add in claimant
     """
     claims = json_df[const.PKL_CLAIM]
+    claimants = json_df[const.PKL_CLAIMANT]
     labels = json_df[const.PKL_LABEL]
     related_articles = json_df[const.PKL_RELATED_ARTICLES]
     supporting_info = []  # Stores the processed supporting information for each claim
 
     start_time = time.time()  # Used for tracking only
 
-    for j, (str_claim, article_ids) in enumerate(zip(claims, related_articles)):
+    for j, (str_claim, str_claimant, article_ids) in enumerate(zip(claims, claimants, related_articles)):
 
         # Tracking
         if j % 1000 == 0 and j != 0:
@@ -34,11 +34,13 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
             log(f"Processing claim {j} | Last 1000 claims took {now - start_time} seconds")
             start_time = now
 
+        # Append claim and claimant
+        claim = str_claimant + ' ' + str_claim
         # Get list of article bodies from the dataframe
         article_ids = [str(article_id) for article_id in article_ids]  # Need to lookup by string
         # Get the articles with the given article ID's and only extract the text column
         articles = articles_df.loc[articles_df[const.PKL_ARTICLE_ID].isin(article_ids), const.PKL_ARTICLE_TXT]
-        support_txt = get_relevant_info(str_claim, articles, vectorizer, max_seq_len)
+        support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len)
         supporting_info.append(support_txt)
 
     return claims, supporting_info, labels
@@ -51,29 +53,37 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
     - Punctuation is removed
     - Maintains upper/lowercase
 
-
-    - TODO: Need to clean the claim as well for vectorization (remove punctuation)
-    - TODO: Incorporate claimant too
     - TODO: Process long sentences by splitting them up
     - TODO: Similarity by checking for named entities, numbers
         - Analyze for number, named entities
         - If contains the number/named entity, average sent sim with 1
-    - TODO: Additional text cleaning, like lemmatization? Remove stopwords?
     """
+    remove_punct = True
+    remove_stopwords = True
+    lowercase = False
+
+    claim = clean_sentence(
+        claim,
+        remove_punctuation=remove_punct,
+        remove_stopwords=remove_stopwords,
+        lowercase=lowercase
+    )
     vec_claim = vectorizer.transform_one(claim)  # Claim vector - we'll use this to compare using cosine similarity
     similarities_and_sents = []  # Stores tuples of (cos sim, sentence)
 
     for article in articles:
         '''
         For each article, we split it into sentences
-            For each sentence, we clean and vectorize, then retrieve the cosine similarity of the claim vs the sentence
-            - Remove extra whitespace
-            - Skip very short sentences
-            - Other potential cleaning
+        For each sentence, we clean and vectorize, then retrieve the cosine similarity of the claim vs the sentence
         '''
         sentences = tokenize_by_sent(article)
         for sentence in sentences:
-            sentence = re.sub(r'\W+', ' ', sentence).strip()  # Remove extra whitespace
+            sentence = clean_sentence(
+                sentence,
+                remove_punctuation=remove_punct,
+                remove_stopwords=remove_stopwords,
+                lowercase=lowercase
+            )
             # Don't process for sentences less than 20 characters long - this usually means improper sentences/words
             if len(sentence) < 20:
                 continue
@@ -116,7 +126,6 @@ def get_avg_vec(vecs):
 
 
 if __name__ == '__main__':
-
     def basic_test():
         vecs = [np.array([1, 3]).reshape(1, -1), np.array([2, 1]).reshape(1, -1)]
         other_vecs = [np.array([-0.5, 0.5]).reshape(1, -1), np.array([0, 3]).reshape(1, -1)]
@@ -156,6 +165,7 @@ if __name__ == '__main__':
         relevant_info = get_relevant_info(claim, [article_one, article_two], v, 5)
         print(relevant_info)
 
+
     def test_from_data():
         from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
         import pandas as pd
@@ -166,5 +176,6 @@ if __name__ == '__main__':
         print(claims)
         print(supp_info)
         print(labels)
+
 
     test_from_data()
