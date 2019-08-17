@@ -249,7 +249,7 @@ if __name__ == '__main__':
         ])
         from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
 
-        v = GoogleNewsVectorizer(path='./assets/GoogleNews-vectors-negative300.bin.gz')
+        v = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
         relevant_info = get_relevant_info(claim, [article_one, article_two], v, 500)
         print(relevant_info)
         relevant_info = get_relevant_info(claim, [article_one, article_two], v, 5)
@@ -259,7 +259,7 @@ if __name__ == '__main__':
     def test_from_data():
         from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
         import pandas as pd
-        v = GoogleNewsVectorizer(path='./assets/GoogleNews-vectors-negative300.bin.gz')
+        v = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
         json_data = pd.read_pickle('../data/json_data.pkl')[0:1]  # just test first
         articles_data = pd.read_pickle('../data/articles_data.pkl')
         claims, supp_info, labels = preprocess_nn(json_data, articles_data, vectorizer=v, max_seq_len=500)

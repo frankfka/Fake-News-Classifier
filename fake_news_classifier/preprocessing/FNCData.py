@@ -81,7 +81,7 @@ class FNCData(object):
 
 if __name__ == '__main__':
     from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
-    v = GoogleNewsVectorizer(path='./assets/GoogleNews-vectors-negative300.bin.gz')
+    v = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
 
     one_list = ["hello hello hellohello hello hello hello", "bye bye bye bye bye bye bye bye bye bye bye "]
     other_list = ["hello hello hello hello hello hello hello", "bye bye bye bye bye bye bye bye bye bye bye "]

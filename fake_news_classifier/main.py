@@ -98,16 +98,16 @@ def build_train_eval(train_df, test_df):
 checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
 
-v = GoogleNewsVectorizer()
-# data = load_preprocessed(
-#     pkl_path='./data/train_data_all.pkl',
-#     vectorizer=v,
-#     max_seq_len=500,
-#     max_label_bias=1.5
-# )
-json_df, articles_df = load_raw_data('./data/json_data.pkl', './data/articles_data.pkl')
-data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
-data.data.to_pickle('./data/train_data_new.pkl')
+v = GoogleNewsVectorizer(entity_path='./preprocessing/assets/EntityWord2Vec.bin.gz')
+data = load_preprocessed(
+    pkl_path='./data/train_data_new.pkl',
+    vectorizer=v,
+    max_seq_len=500,
+    max_label_bias=1.5
+)
+# json_df, articles_df = load_raw_data('./data/json_data.pkl', './data/articles_data.pkl')
+# data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
+# data.data.to_pickle('./data/train_data_new.pkl')
 
 now = time.time()
 log(f"Loaded preprocessed data in {now - checkpoint_time}s")
