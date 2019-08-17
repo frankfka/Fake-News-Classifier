@@ -18,6 +18,7 @@ LSTM_UNITS = 'lstm_units'
 CONV_UNITS = 'conv_units'
 CONV_KERNEL_SIZE = 'conv_kernel_size'
 DENSE_UNITS = 'dense_units'
+LEARN_RATE = 'learn_rate'
 # Arguments: Train/Predict
 VAL_SPLIT = 'val_split'
 SAVE_LOGS = 'save_logs'
@@ -43,8 +44,7 @@ def get_input_nn(input_shape, dropout, num_lstm_units, num_conv_units, conv_kern
     nn.add(MaxPooling1D())
     nn.add(
         Bidirectional(
-            LSTM(units=num_lstm_units, dropout=dropout, recurrent_dropout=dropout),
-            input_shape=input_shape
+            LSTM(units=num_lstm_units, dropout=dropout, recurrent_dropout=dropout)
         )
     )
     return nn
@@ -83,7 +83,6 @@ class CLSTMWithDense(FNCModel):
             - Try adding a conv layer
             - LSTM: Try 256, 64, 32
             - Try adding an LSTM layer
-            - Dense: try 512, 32
         - Learning rate
             - 0.01, 0.1, 0.005
     """
@@ -99,6 +98,7 @@ class CLSTMWithDense(FNCModel):
         conv_kernel_size = self.args.get(CONV_KERNEL_SIZE, 3)
         lstm_num_units = self.args.get(LSTM_UNITS, 128)
         dense_num_hidden = self.args.get(DENSE_UNITS, 64)
+        learn_rate = self.args.get(LEARN_RATE, 0.001)
 
         input_shape = (seq_len, emb_dim)
 
@@ -123,12 +123,13 @@ class CLSTMWithDense(FNCModel):
         merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
         merged_mlp = Dropout(dropout)(merged_mlp)
         merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
+        merged_mlp = Dropout(dropout)(merged_mlp)
         merged_mlp = Dense(3, activation='softmax')(merged_mlp)
 
         complete_model = Model([text_one_nn.input, text_two_nn.input], merged_mlp)
 
         # Create the optimizer
-        optimizer = Adam()
+        optimizer = Adam(lr=learn_rate)
 
         complete_model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
         complete_model.summary()
@@ -165,7 +166,7 @@ class CLSTMWithDense(FNCModel):
         if save_logs:
             callbacks.append(TensorBoard(log_dir=get_tb_logdir(self.log_name)))
         if early_stop:
-            callbacks.append(EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=3))
+            callbacks.append(EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=2, min_delta=0.003))
         return self.model.fit(
             [texts, other_texts],
             labels,

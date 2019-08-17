@@ -18,6 +18,11 @@ def tokenize_by_sentence(text):
     return sent_tokenize(text)
 
 
+# Strip non-alphanumeric from a sentence
+def keep_alphanumeric(text):
+    return re.sub('[^0-9a-zA-Z]+', ' ', text).strip()
+
+
 # Cleans sentence for processing
 def clean_sentence(
         txt,

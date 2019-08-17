@@ -9,23 +9,6 @@ from fake_news_classifier.preprocessing.text_util import tokenize_by_word, clean
 from fake_news_classifier.model.FNCModel import FNCModel
 
 
-def tokenizer(txt):
-    # Tokenize by word
-    tokenized = tokenize_by_word(txt)
-    # Clean the tokenized
-    tokenized = clean_tokenized(
-        tokenized,
-        lowercase=True,
-        remove_stopwords=True,
-        remove_punctuation=True
-    )
-    # Analyze part of speech, lemmatize if needed
-    tokenized = analyze_pos(tokenized, lemmatize=True)
-    # (word, pos) -> word_pos
-    tokenized = combine_token_pos(tokenized)
-    return tokenized
-
-
 def get_nn(input_dim):
     nn = Sequential()
     nn.add(Dense(512, input_dim=input_dim, activation='relu'))
@@ -64,6 +47,21 @@ class ArticleCredibilityNN(FNCModel):
         tfidf_max_df = args.get(ArticleCredibilityNN.TFIDF_MAX_DF, 0.99)
         tfidf_min_df = args.get(ArticleCredibilityNN.TFIDF_MIN_DF, 0.01)
 
+        def tokenizer(txt):
+            # Tokenize by word
+            tokenized = tokenize_by_word(txt)
+            # Clean the tokenized
+            tokenized = clean_tokenized(
+                tokenized,
+                lowercase=True,
+                remove_stopwords=True,
+                remove_punctuation=True
+            )
+            # Analyze part of speech, lemmatize if needed
+            tokenized = analyze_pos(tokenized, lemmatize=True)
+            # (word, pos) -> word_pos
+            tokenized = combine_token_pos(tokenized)
+            return tokenized
         self.vectorizer = TfidfVectorizer(
             analyzer='word',
             max_df=tfidf_max_df,

@@ -1,11 +1,13 @@
 import re
 import time
 
+from nltk import ne_chunk, Tree
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 import fake_news_classifier.const as const
-from fake_news_classifier.preprocessing.text_util import tokenize_by_sent, tokenize_by_word, clean_sentence
+from fake_news_classifier.preprocessing.text_util import tokenize_by_sent, tokenize_by_word, clean_sentence, \
+    analyze_pos, clean_tokenized, keep_alphanumeric
 from fake_news_classifier.util import log
 
 """
@@ -13,100 +15,188 @@ This class abstracts away the details of the FNC dataset. This is so that our mo
 If the dataset changes, only the preprocessors need to change.
 """
 
+# TODO: This method has changed. Need to run again
+
 
 def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
     """
     Given the raw FNC data, return 3 lists of (text, other_text (supporting info), and labels)
+        - Claims are appended with claimant
+        - Articles are concatenated and the max_seq_len # of most relevant words are appended into supporting info
+        - Labels are passed through as is
     """
+
+    # Raw Data
     claims = json_df[const.PKL_CLAIM]
     claimants = json_df[const.PKL_CLAIMANT]
     labels = json_df[const.PKL_LABEL]
     related_articles = json_df[const.PKL_RELATED_ARTICLES]
-    supporting_info = []  # Stores the processed supporting information for each claim
+
+    # Processed Data
+    processed_claims = []
+    supporting_info = []
 
     start_time = time.time()  # Used for tracking only
 
+    '''
+    Loop through all the claims and their article ID's
+    '''
     for j, (str_claim, str_claimant, article_ids) in enumerate(zip(claims, claimants, related_articles)):
 
-        # Tracking
+        # Tracking use only
         if j % 1000 == 0 and j != 0:
             now = time.time()
             log(f"Processing claim {j} | Last 1000 claims took {now - start_time} seconds")
             start_time = now
 
-        # Append claim and claimant
+        '''
+        Process Claim: 
+            Final Claim = Claimant + Claim
+            - Take out all non-alphanumeric
+            - Keep case - may be important
+        '''
         claim = str_claimant + ' ' + str_claim
+        claim = keep_alphanumeric(claim)
+
+        '''
+        Process articles
+            - Get all articles from the dataframe by ID
+            - Get relevant info from the article, truncated to max_seq_len # of words
+        '''
         # Get list of article bodies from the dataframe
         article_ids = [str(article_id) for article_id in article_ids]  # Need to lookup by string
         # Get the articles with the given article ID's and only extract the text column
         articles = articles_df.loc[articles_df[const.PKL_ARTICLE_ID].isin(article_ids), const.PKL_ARTICLE_TXT]
         support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len)
+
+        # Add to list
+        processed_claims.append(claim)
         supporting_info.append(support_txt)
 
-    return claims, supporting_info, labels
+    return processed_claims, supporting_info, labels
 
 
 def get_relevant_info(claim, articles, vectorizer, max_seq_len):
     """
     Returns the most relevant sentences relating to a claim using the average vectors of words and cosine similarity
     - Extra whitespace is trimmed and removed
-    - Punctuation is removed
-    - Maintains upper/lowercase
+    - Trims all non-alphanumeric
+    - Maintains case
 
     - TODO: Process long sentences by splitting them up
-    - TODO: Similarity by checking for named entities, numbers
-        - Analyze for number, named entities
-        - If contains the number/named entity, average sent sim with 1
     """
-    remove_punct = True
-    remove_stopwords = True
-    lowercase = False
 
-    claim = clean_sentence(
-        claim,
-        remove_punctuation=remove_punct,
-        remove_stopwords=remove_stopwords,
-        lowercase=lowercase
-    )
+    # Note: expects claim to be already cleaned
     vec_claim = vectorizer.transform_one(claim)  # Claim vector - we'll use this to compare using cosine similarity
     similarities_and_sents = []  # Stores tuples of (cos sim, sentence)
 
+    # Loop through all articles to construct supporting information
     for article in articles:
+        sentences = tokenize_by_sent(article)
+
         '''
-        For each article, we split it into sentences
         For each sentence, we clean and vectorize, then retrieve the cosine similarity of the claim vs the sentence
         '''
-        sentences = tokenize_by_sent(article)
         for sentence in sentences:
-            sentence = clean_sentence(
-                sentence,
-                remove_punctuation=remove_punct,
-                remove_stopwords=remove_stopwords,
-                lowercase=lowercase
-            )
-            # Don't process for sentences less than 20 characters long - this usually means improper sentences/words
-            if len(sentence) < 20:
+            # Only process alphanumeric characters
+            sentence = keep_alphanumeric(sentence)
+            # Don't process for sentences less than 40 characters long - this usually means improper sentences/words
+            if len(sentence) < 40:
                 continue
+            # Get vector of sentence and find cosine similarity
             vec_sent = vectorizer.transform_one(sentence)
             similarity = cos_sim(vec_claim, vec_sent)
+            # See if any named entities/numbers appear together - if so, take the average of similarity & 0.9
+            # This raises the similarity
+            if has_ner_or_number_naive(claim, sentence):
+                similarity = np.mean([0.9, similarity])
+            # Add to results
             similarities_and_sents.append((similarity, sentence))
 
     # Sort the similarities (in desc order) using their similarity
     sorted_sents = sorted(similarities_and_sents, key=lambda elem: elem[0], reverse=True)
 
-    # Construct relevant info - keep looping through sentences, adding word by word until we hit max_seq_len
     article_info = ''
     num_words = 0
+    '''
+    Construct relevant info - keep looping through sentences, adding sentences until we hit max_seq_len
+    We'll surpass max_seq_len, but that's okay
+    '''
     for similarity, sentence in sorted_sents:
         if num_words >= max_seq_len:
             break
-        words = tokenize_by_word(sentence)
-        for word in words:
-            article_info += ' ' + word
-            num_words += 1
-            if num_words >= max_seq_len:
-                break
+        article_info += ' <SEP> ' + sentence  # Add a separator
+        num_words += len(sentence.split())
     return article_info
+
+
+# Check if sent_2 contains any named entities or numbers in sent_1
+# Naive because it does no NER
+def has_ner_or_number_naive(sent_1, sent_2):
+    # Just keep alphanumerics
+    alphanumeric_sent_1 = keep_alphanumeric(sent_1)
+    # Tokenize, remove stopwords, and remove punctuation
+    sent_1_toks = tokenize_by_word(alphanumeric_sent_1)
+    sent_1_toks = clean_tokenized(sent_1_toks, remove_punctuation=True, remove_stopwords=True)
+    # Find POS
+    sent_1_toks = analyze_pos(sent_1_toks, lemmatize=False)
+    # CD -> number, NNP/NNPS -> proper nouns
+    pos_of_interest = {'CD', 'NNP', 'NNPS'}
+    toks_of_interest = list(filter(lambda tok_with_pos: tok_with_pos[1] in pos_of_interest, sent_1_toks))
+    toks_of_interest = [tok_with_pos[0].lower() for tok_with_pos in toks_of_interest]
+
+    # Tokenize sentence 2 by word, then case to lower case
+    sent_2 = keep_alphanumeric(sent_2)
+    sent_2_toks = [word.lower() for word in tokenize_by_word(sent_2)]
+
+    # If any tokens of interest are in the second sentence, return true
+    for tok in toks_of_interest:
+        if tok in sent_2_toks:
+            return True
+    return False
+
+
+# Check if sent_2 contains any named entities or numbers in sent_1
+# Naive because it does no NER
+def has_ner_or_number(sent_1, sent_2):
+    # Get number and NER's from sent_1
+    alphanumeric_sent_1 = keep_alphanumeric(sent_1)
+    sent_1_toks = tokenize_by_word(alphanumeric_sent_1)
+    sent_1_toks = clean_tokenized(sent_1_toks, remove_punctuation=True, remove_stopwords=True)
+    sent_1_toks = analyze_pos(sent_1_toks, lemmatize=False)
+    # Get numbers
+    numbers = list(filter(lambda tok_with_pos: tok_with_pos[1] == 'CD', sent_1_toks))  # has pos tags as tuple
+    numbers = [number[0] for number in numbers]  # no pos tags, just numbers
+
+    print(numbers)
+
+    # Get named entities
+    def get_named_entities(tokens):
+        chunked = ne_chunk(sent_1_toks)
+        continuous_chunk = []
+        current_chunk = []
+        for chunk in chunked:
+            if type(chunk) == Tree:
+                current_chunk.append(" ".join([token for token, pos in chunk.leaves()]))
+            elif current_chunk:
+                named_entity = " ".join(current_chunk)
+                if named_entity not in continuous_chunk:
+                    continuous_chunk.append(named_entity)
+                    current_chunk = []
+            else:
+                continue
+        return continuous_chunk
+    named_entities = list(get_named_entities(sent_1_toks))
+    print(named_entities)
+    named_entities = [entity.split() for entity in named_entities]
+    toks_of_interest = numbers + named_entities
+    print(toks_of_interest)
+    lowercase_sent_2 = sent_2.lower()
+    for tok in toks_of_interest:
+        # TODO: this matches a seq of characters (not words) so 'is' will match 'his'
+        if tok in lowercase_sent_2:
+            return True
+    return False
 
 
 # Returns cosine similarity between two texts

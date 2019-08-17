@@ -16,7 +16,8 @@ def load_from_pickle(path):
     return loaded_model, loaded_vec
 
 
-def tokenizer(txt):
+# Called before training and predicting on a specific corpus
+def preprocess(txt):
     # Tokenize by word
     tokenized = tokenize_by_word(txt)
     # Clean the tokenized
@@ -30,7 +31,7 @@ def tokenizer(txt):
     tokenized = analyze_pos(tokenized, lemmatize=True)
     # (word, pos) -> word_pos
     tokenized = combine_token_pos(tokenized)
-    return tokenized
+    return ' '.join(tokenized)
 
 
 class ArticleCredibilityPAC(FNCModel):
@@ -68,8 +69,7 @@ class ArticleCredibilityPAC(FNCModel):
             analyzer='word',
             max_df=tfidf_max_df,
             min_df=tfidf_min_df,
-            ngram_range=(1, 2),
-            tokenizer=tokenizer
+            ngram_range=(1, 2)
         )
         self.model = PassiveAggressiveClassifier(max_iter=1000, random_state=42, tol=1e-3)
 
@@ -78,13 +78,15 @@ class ArticleCredibilityPAC(FNCModel):
     #   LABEL_IDX column should be 0 for false, 1 for true
     def train(self, data, train_args):
         texts = data[ArticleCredibilityPAC.TEXT_IDX]
+        texts = [preprocess(txt) for txt in texts]
         labels = data[ArticleCredibilityPAC.LABEL_IDX]
         vec_texts = self.vectorizer.fit_transform(texts)
         self.model.fit(vec_texts, labels)
 
     # Use model to predict - Data should just be a list of strings (articles)
     def predict(self, data, predict_args):
-        texts = self.vectorizer.transform(data)
+        texts = [preprocess(txt) for txt in data]
+        texts = self.vectorizer.transform(texts)
         return self.model.predict(texts)
 
     # Save model to disk
@@ -124,4 +126,4 @@ if __name__ == '__main__':
     from fake_news_classifier.model.util import eval_predictions
     eval_predictions(Y_test_true, Y_test_pred, classes=['fake', 'real'], print_results=True)
 
-    model.save('./test.pkl')
+    model.save('./ArticleCredibilityPAC_Trained.pkl')

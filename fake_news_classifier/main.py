@@ -17,7 +17,7 @@ def load_raw_data(json_pkl_path, articles_pkl_path):
 
 
 # Preprocess data, returns FNCData object
-def preprocess(json_data, articles_data, vectorizer, max_seq_len, max_label_bias):
+def preprocess(json_data, articles_data, vectorizer, max_seq_len, max_label_bias=None):
     texts, other_texts, labels = preprocess_nn(json_data, articles_data, vectorizer, max_seq_len=max_seq_len)
     return FNCData(
         list_of_txt=texts,
@@ -65,8 +65,10 @@ def build_train_eval(train_df, test_df):
     model_args = {
         model.SEQ_LEN: 500,
         model.EMB_DIM: 300,
-        model.CONV_KERNEL_SIZE: 5,
-        model.DENSE_UNITS: 256
+        model.CONV_KERNEL_SIZE: 2,
+        model.DENSE_UNITS: 1024,
+        model.CONV_UNITS: 128,
+        model.LSTM_UNITS: 128
     }
     nn = model.CLSTMWithDense(model_args)
     # Train model
@@ -97,12 +99,15 @@ checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
 
 v = GoogleNewsVectorizer()
-data = load_preprocessed(
-    pkl_path='./data/train_data_all.pkl',
-    vectorizer=v,
-    max_seq_len=500,
-    max_label_bias=2
-)
+# data = load_preprocessed(
+#     pkl_path='./data/train_data_all.pkl',
+#     vectorizer=v,
+#     max_seq_len=500,
+#     max_label_bias=1.5
+# )
+json_df, articles_df = load_raw_data('./data/json_data.pkl', './data/articles_data.pkl')
+data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
+data.data.to_pickle('./data/train_data_new.pkl')
 
 now = time.time()
 log(f"Loaded preprocessed data in {now - checkpoint_time}s")
