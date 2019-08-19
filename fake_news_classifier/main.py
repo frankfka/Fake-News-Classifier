@@ -30,9 +30,12 @@ def preprocess(json_data, articles_data, vectorizer, max_seq_len, max_label_bias
 
 
 # Load preprocessed data, returns FNCData object
-def load_preprocessed(pkl_path, vectorizer, max_seq_len, max_label_bias):
+def load_preprocessed(pkl_path, vectorizer, max_seq_len, max_label_bias=None, fnc_pkl_path=None):
     # Shuffle and just take 5000 for now to tune model
     df = pd.read_pickle(pkl_path) #.sample(frac=1).reset_index(drop=True).loc[0:5000, :]
+    if fnc_pkl_path is not None:
+        df_fnc = pd.read_pickle(fnc_pkl_path)
+        df = pd.concat([df, df_fnc], ignore_index=True)
     return FNCData(
         list_of_txt=df[const.TEXT_ONE_IDX],
         other_list_of_txt=df[const.TEXT_TWO_IDX],
@@ -50,7 +53,7 @@ def k_fold(fnc_data, k):
 
 
 # Returns a vectorized dataframe input to the model, given an FNCData object
-def load_batch(fnc_data, idx):
+def load_batch(fnc_data, idx=None):
     vec_txt, vec_other_txt, labels = fnc_data.get(vectorize=True, idx=idx)
     return pd.DataFrame(data={
         const.TEXT_ONE_IDX: vec_txt,
@@ -99,39 +102,64 @@ checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
 
 v = GoogleNewsVectorizer(entity_path='./preprocessing/assets/EntityWord2Vec.bin.gz')
-# data = load_preprocessed(
-#     pkl_path='./data/train_data.pkl',
-#     vectorizer=v,
-#     max_seq_len=500,
-#     max_label_bias=1.5
-# )
-json_df, articles_df = load_raw_data('./data/fnc_json_data.pkl', './data/fnc_articles_data.pkl')
-data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
-data.data.to_pickle('./data/train_data_fnc.pkl')
+data = load_preprocessed(
+    pkl_path='./data/train_data.pkl',
+    fnc_pkl_path='./data/train_data_fnc.pkl',
+    vectorizer=v,
+    max_seq_len=500,
+    max_label_bias=1.5
+)
+test_data = load_preprocessed(
+    pkl_path='./data/test_data.pkl',
+    vectorizer=v,
+    max_seq_len=500
+)
+# json_df, articles_df = load_raw_data('./data/fnc_json_data.pkl', './data/fnc_articles_data.pkl')
+# data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
+# data.data.to_pickle('./data/train_data_fnc.pkl')
 
 now = time.time()
 log(f"Loaded preprocessed data in {now - checkpoint_time}s")
 checkpoint_time = now
 
+log("Training", header=True)
+
+trainable_df = load_batch(data)
+testable_df = load_batch(test_data)
+
+# Train, eval model, then get the failed indicies and save them for processing
+failures = build_train_eval(train_df=trainable_df, test_df=testable_df)
+fail_idx, fail_pred = zip(*failures)
+fail_txt, fail_other_txt, true_labels = test_data.get(idx=fail_idx)
+pd.DataFrame(data={
+    const.TEXT_ONE_IDX: fail_txt,
+    const.TEXT_TWO_IDX: fail_other_txt,
+    'true_label': true_labels,
+    'pred_label': fail_pred
+}).to_csv("CLSTMDense_Failed.csv")
+
+now = time.time()
+log(f"Training completed in {now - checkpoint_time} seconds")
+
 # Train with k-fold validation
-for fold, (train_idx, test_idx) in enumerate(k_fold(data, k=5)):
-
-    log(f"Training Fold {fold}", header=True)
-
-    train_data = load_batch(data, train_idx)
-    test_data = load_batch(data, test_idx)
-
-    # Train, eval model, then get the failed indicies and save them for processing
-    failures = build_train_eval(train_df=train_data, test_df=test_data)
-    fail_idx, fail_pred = zip(*failures)
-    fail_txt, fail_other_txt, true_labels = data.get(idx=[test_idx[i] for i in fail_idx])
-    pd.DataFrame(data={
-        const.TEXT_ONE_IDX: fail_txt,
-        const.TEXT_TWO_IDX: fail_other_txt,
-        'true_label': true_labels,
-        'pred_label': fail_pred
-    }).to_csv(f"CLSTMDense_Failed_Fold{fold}.csv")
-
-    now = time.time()
-    log(f"Fold {fold} completed in {now - checkpoint_time} seconds")
-    checkpoint_time = now
+# for fold, (train_idx, test_idx) in enumerate(k_fold(data, k=5)):
+#
+#     log(f"Training Fold {fold}", header=True)
+#
+#     train_data = load_batch(data, train_idx)
+#     test_data = load_batch(data, test_idx)
+#
+#     # Train, eval model, then get the failed indicies and save them for processing
+#     failures = build_train_eval(train_df=train_data, test_df=test_data)
+#     fail_idx, fail_pred = zip(*failures)
+#     fail_txt, fail_other_txt, true_labels = data.get(idx=[test_idx[i] for i in fail_idx])
+#     pd.DataFrame(data={
+#         const.TEXT_ONE_IDX: fail_txt,
+#         const.TEXT_TWO_IDX: fail_other_txt,
+#         'true_label': true_labels,
+#         'pred_label': fail_pred
+#     }).to_csv(f"CLSTMDense_Failed_Fold{fold}.csv")
+#
+#     now = time.time()
+#     log(f"Fold {fold} completed in {now - checkpoint_time} seconds")
+#     checkpoint_time = now
