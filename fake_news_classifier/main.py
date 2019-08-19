@@ -99,15 +99,15 @@ checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
 
 v = GoogleNewsVectorizer(entity_path='./preprocessing/assets/EntityWord2Vec.bin.gz')
-data = load_preprocessed(
-    pkl_path='./data/train_data_new.pkl',
-    vectorizer=v,
-    max_seq_len=500,
-    max_label_bias=1.5
-)
-# json_df, articles_df = load_raw_data('./data/json_data.pkl', './data/articles_data.pkl')
-# data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
-# data.data.to_pickle('./data/train_data_new.pkl')
+# data = load_preprocessed(
+#     pkl_path='./data/train_data.pkl',
+#     vectorizer=v,
+#     max_seq_len=500,
+#     max_label_bias=1.5
+# )
+json_df, articles_df = load_raw_data('./data/fnc_json_data.pkl', './data/fnc_articles_data.pkl')
+data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
+data.data.to_pickle('./data/train_data_fnc.pkl')
 
 now = time.time()
 log(f"Loaded preprocessed data in {now - checkpoint_time}s")

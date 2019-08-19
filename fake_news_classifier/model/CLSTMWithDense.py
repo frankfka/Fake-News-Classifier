@@ -74,17 +74,6 @@ class CLSTMWithDense(FNCModel):
     Arguments (Predict):
         - Verbosity - default 1
         - Batch size - default 32
-
-    # TODO: Things to try:
-        - Regularization
-        - Pooling?
-        - Depth/Width
-            - Conv: Increase units to 512, 1024
-            - Try adding a conv layer
-            - LSTM: Try 256, 64, 32
-            - Try adding an LSTM layer
-        - Learning rate
-            - 0.01, 0.1, 0.005
     """
 
     def __init__(self, args, name='CLSTMWithDense'):
@@ -155,8 +144,8 @@ class CLSTMWithDense(FNCModel):
         labels = data[LABEL_IDX]
 
         # Do sequence padding
-        texts = pad_sequences(texts, maxlen=self.seq_len, dtype='float32')
-        other_texts = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32')
+        texts = pad_sequences(texts, maxlen=self.seq_len, dtype='float32', truncating='post')
+        other_texts = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32', truncating='post')
         labels = to_categorical(labels, num_classes=3)
         class_weights = get_class_weights(labels)
         log("Calculated class weights")
@@ -187,8 +176,8 @@ class CLSTMWithDense(FNCModel):
         texts = data[TEXT_ONE_IDX]
         other_texts = data[TEXT_TWO_IDX]
 
-        titles = pad_sequences(texts, maxlen=self.seq_len, dtype='float32')
-        bodies = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32')
+        titles = pad_sequences(texts, maxlen=self.seq_len, dtype='float32', truncating='post')
+        bodies = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32', truncating='post')
         return self.model.predict(
             [titles, bodies],
             batch_size=batch_size,

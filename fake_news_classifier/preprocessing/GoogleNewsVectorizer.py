@@ -18,7 +18,7 @@ class GoogleNewsVectorizer(object):
         log(f"Google word vectors loaded in {time.time() - start_time}s")
         if entity_path is not None:
             start_time = time.time()
-            # Named entity recognition
+            # Named entity recognition - TODO: this requires phrases like donald_trump
             self.entity_model = gensim.models.KeyedVectors.load_word2vec_format(
                 entity_path,
                 unicode_errors='ignore',
@@ -38,11 +38,10 @@ class GoogleNewsVectorizer(object):
         return [self.get_word_vec(word) for word in words]
 
     def get_word_vec(self, word):
-        # TODO: Need to remove punctuation
+        # TODO: Need to remove punctuation?
         # TODO: Support for bi- and tri-grams: https://code.google.com/archive/p/word2vec/
-        # TODO: Integrate entity vectors?
         # Separator - return ones
-        if word == "<SEP>":
+        if word == "|SEP|":
             return np.ones(300, dtype='float32')
         # Best possible case - word in model, return that vector
         if word in self.model.vocab:
@@ -52,8 +51,10 @@ class GoogleNewsVectorizer(object):
             return self.model[word.lower()]
         # Try entity naming
         if self.entity_model is not None and word in self.entity_model.vocab:
+            log("Using Entity Model")
             return self.entity_model[word]
         if self.entity_model is not None and word.lower() in self.entity_model.vocab:
+            log("Using Entity Model")
             return self.entity_model[word.lower()]
         # Just return an empty vector
         return np.zeros(300, dtype='float32')

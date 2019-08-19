@@ -125,7 +125,7 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
     for similarity, sentence in sorted_sents:
         if num_words >= max_seq_len:
             break
-        article_info += ' <SEP> ' + sentence  # Add a separator
+        article_info += ' |SEP| ' + sentence  # Add a separator
         num_words += len(sentence.split())
     return article_info
 
