@@ -1,6 +1,6 @@
 import pandas as pd
 
-from fake_news_classifier.const import TEXT_TWO_IDX, TEXT_ONE_IDX, LABEL_IDX
+from fake_news_classifier.const import TEXT_TWO_IDX, TEXT_ONE_IDX, LABEL_IDX, CRED_IDX
 from fake_news_classifier.util import log
 
 
@@ -38,12 +38,19 @@ class FNCData(object):
     - This class is meant to be fed into a neural network
     - Contains a DF for body1, body2, label (0, 1, or 2)
     - Usually, body1 should be the claim, but this is meant to be universal
+    - TODO: Can incorporate credibility in this, if we go that route
+    - TODO: Can incorporate preprocessing, once we finalize
     """
 
-    def __init__(self, list_of_txt, other_list_of_txt, list_of_labels, vectorizer, max_seq_len, max_label_bias=None):
+    def __init__(self, list_of_txt, other_list_of_txt, list_of_labels, vectorizer, max_seq_len, max_label_bias=None,
+                 list_of_cred=None):
+        creds = [None] * len(list_of_labels)
+        if list_of_cred is not None:
+            creds = list_of_cred
         self.data = pd.DataFrame(data={
             TEXT_ONE_IDX: list_of_txt,
             TEXT_TWO_IDX: other_list_of_txt,
+            CRED_IDX: creds,
             LABEL_IDX: list_of_labels
         })
         self.vectorizer = vectorizer
@@ -64,30 +71,33 @@ class FNCData(object):
             sample_data = sample_data.iloc[idx, :]
         texts = sample_data[TEXT_ONE_IDX]
         other_texts = sample_data[TEXT_TWO_IDX]
+        creds = sample_data[CRED_IDX]
         sample_labels = sample_data[LABEL_IDX]
         if vectorize:
             return (
                 self.vectorizer.transform_many(texts, self.max_seq_len),
                 self.vectorizer.transform_many(other_texts, self.max_seq_len),
+                creds,
                 sample_labels
             )
         else:
             return (
                 texts,
                 other_texts,
+                creds,
                 sample_labels
             )
 
 
 if __name__ == '__main__':
-    from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
-    v = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
+    from fake_news_classifier.preprocessing.Word2VecVectorizer import Word2VecVectorizer
+    v = Word2VecVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
 
     one_list = ["hello hello hellohello hello hello hello", "bye bye bye bye bye bye bye bye bye bye bye "]
     other_list = ["hello hello hello hello hello hello hello", "bye bye bye bye bye bye bye bye bye bye bye "]
 
     data = FNCData(one_list, other_list, [0, 0], v, 500)
-    vec_txt, vec_other_txt, labels = data.get(vectorize=True)
+    vec_txt, vec_other_txt, creds, labels = data.get(vectorize=True)
 
     print(f"Vec Text: {len(vec_txt)} x {len(vec_txt[0])} x {len(vec_txt[0][0])}")
     print(labels)

@@ -1,11 +1,11 @@
-from keras import Sequential, Model
+from keras import Sequential, Model, Input
 from keras.callbacks import TensorBoard, EarlyStopping
 from keras.layers import Bidirectional, LSTM, BatchNormalization, Concatenate, Dense, Dropout, MaxPooling1D, Conv1D
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from keras_preprocessing.sequence import pad_sequences
 
-from fake_news_classifier.const import LABEL_IDX, TEXT_TWO_IDX, TEXT_ONE_IDX
+from fake_news_classifier.const import LABEL_IDX, TEXT_TWO_IDX, TEXT_ONE_IDX, CRED_IDX
 from fake_news_classifier.model.FNCModel import FNCModel
 from fake_news_classifier.model.util import get_class_weights
 from fake_news_classifier.util import get_tb_logdir, log
@@ -50,7 +50,7 @@ def get_input_nn(input_shape, dropout, num_lstm_units, num_conv_units, conv_kern
     return nn
 
 
-class CLSTMWithDense(FNCModel):
+class CredCLSTMWithDense(FNCModel):
     """
     Two Inputs (CNN -> Dropout -> MaxPool -> LSTM)
      -> Concatenation -> Normalization -> 2 Dense -> Output Dense -> Softmax
@@ -76,8 +76,8 @@ class CLSTMWithDense(FNCModel):
         - Batch size - default 32
     """
 
-    def __init__(self, args, name='CLSTMWithDense'):
-        super(CLSTMWithDense, self).__init__(name, args)
+    def __init__(self, args, name='CredCLSTMWithDense'):
+        super(CredCLSTMWithDense, self).__init__(name, args)
 
         # Get args for building the model, default to some accepted parameters
         seq_len = self.args.get(SEQ_LEN)
@@ -105,8 +105,12 @@ class CLSTMWithDense(FNCModel):
             num_conv_units=conv_num_units,
             conv_kernel_size=conv_kernel_size
         )
+        cred_input = Input(shape=(1,))
 
-        merged_mlp = Concatenate()([text_one_nn.output, text_two_nn.output])
+        merged_mlp = Concatenate()([text_one_nn.output, text_two_nn.output, cred_input])
+        # TODO: normalize the layer to be between -1 and 1? Not sure if batch_norm does this
+        # TODO: Try getting rid of this batch_norm layer
+        # TODO: Try adding credibility elsewhere (1 layer down?)
         merged_mlp = BatchNormalization()(merged_mlp)
         merged_mlp = Dropout(dropout)(merged_mlp)
         merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
@@ -115,7 +119,7 @@ class CLSTMWithDense(FNCModel):
         merged_mlp = Dropout(dropout)(merged_mlp)
         merged_mlp = Dense(3, activation='softmax')(merged_mlp)
 
-        complete_model = Model([text_one_nn.input, text_two_nn.input], merged_mlp)
+        complete_model = Model([text_one_nn.input, text_two_nn.input, cred_input], merged_mlp)
 
         # Create the optimizer
         optimizer = Adam(lr=learn_rate)
@@ -141,6 +145,7 @@ class CLSTMWithDense(FNCModel):
         # Input data
         texts = data[TEXT_ONE_IDX]
         other_texts = data[TEXT_TWO_IDX]
+        creds = data[CRED_IDX]
         labels = data[LABEL_IDX]
 
         # Do sequence padding
@@ -157,7 +162,7 @@ class CLSTMWithDense(FNCModel):
         if early_stop:
             callbacks.append(EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=3, min_delta=0.003))
         return self.model.fit(
-            [texts, other_texts],
+            [texts, other_texts, creds],
             labels,
             batch_size=batch_size,
             epochs=epochs,
@@ -175,11 +180,12 @@ class CLSTMWithDense(FNCModel):
         # Get data
         texts = data[TEXT_ONE_IDX]
         other_texts = data[TEXT_TWO_IDX]
+        creds = data[CRED_IDX]
 
         titles = pad_sequences(texts, maxlen=self.seq_len, dtype='float32', truncating='post')
         bodies = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32', truncating='post')
         return self.model.predict(
-            [titles, bodies],
+            [titles, bodies, creds],
             batch_size=batch_size,
             verbose=verbose
         )
@@ -187,3 +193,15 @@ class CLSTMWithDense(FNCModel):
     # Save model to disk
     def save(self, path):
         pass
+
+
+if __name__ == '__main__':
+    model_args = {
+        SEQ_LEN: 500,
+        EMB_DIM: 300,
+        CONV_KERNEL_SIZE: 2,
+        DENSE_UNITS: 1024,
+        CONV_UNITS: 256,
+        LSTM_UNITS: 128
+    }
+    CredCLSTMWithDense(model_args)

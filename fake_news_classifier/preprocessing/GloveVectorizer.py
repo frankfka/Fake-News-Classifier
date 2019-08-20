@@ -1,30 +1,36 @@
 import gensim
 import time
 import numpy as np
+from gensim.scripts.glove2word2vec import glove2word2vec
+from gensim.test.utils import datapath, get_tmpfile
+
 from fake_news_classifier.preprocessing.text_util import tokenize_by_word
 from fake_news_classifier.util import log
 
 DEFAULT_MAX_SEQ_LEN = 500
+WORD2VEC_TMP_FILE = './assets/300d.commoncrawl.converted.glove.txt'
 
 
-class GoogleNewsVectorizer(object):
+# Helper function to convert GloVe -> word2vec format
+def glove_to_word2vec(glove_path, convert_path):
+    _ = glove2word2vec(glove_path, convert_path)
+    return convert_path
+
+
+class GloveVectorizer(object):
     """
-    Google Vectorization object that allows for text -> vector. Uses pre-trained GoogleNews vectors
+    Glove Vectorization object
     """
 
-    def __init__(self, path='./preprocessing/assets/GoogleNewsVectors.bin.gz', entity_path=None):
+    def __init__(self, word2vec_path=None, glove_path=None):
         start_time = time.time()
-        self.model = gensim.models.KeyedVectors.load_word2vec_format(path, unicode_errors='ignore', binary=True)
-        log(f"Google word vectors loaded in {time.time() - start_time}s")
-        if entity_path is not None:
-            start_time = time.time()
-            # Named entity recognition - TODO: this requires phrases like donald_trump
-            self.entity_model = gensim.models.KeyedVectors.load_word2vec_format(
-                entity_path,
-                unicode_errors='ignore',
-                binary=True
-            )
-            log(f"Entity recognition word vectors loaded in {time.time() - start_time}s")
+        if word2vec_path is not None:
+            self.model = gensim.models.KeyedVectors.load_word2vec_format(word2vec_path)
+        elif glove_path is not None and word2vec_path is not None:
+            self.model = gensim.models.KeyedVectors.load_word2vec_format(glove_to_word2vec(glove_path, word2vec_path))
+        else:
+            raise ValueError("Required params not passed")
+        log(f"GloVe word vectors loaded in {time.time() - start_time}s")
 
     def transform_many(self, list_of_txt, max_seq_len=DEFAULT_MAX_SEQ_LEN):
         return [
@@ -38,8 +44,6 @@ class GoogleNewsVectorizer(object):
         return [self.get_word_vec(word) for word in words]
 
     def get_word_vec(self, word):
-        # TODO: Need to remove punctuation?
-        # TODO: Support for bi- and tri-grams: https://code.google.com/archive/p/word2vec/
         # Separator - return ones
         if word == "|SEP|":
             return np.ones(300, dtype='float32')
@@ -49,19 +53,12 @@ class GoogleNewsVectorizer(object):
         # Try a lowercase representation
         if word.lower() in self.model.vocab:
             return self.model[word.lower()]
-        # Try entity naming
-        if self.entity_model is not None and word in self.entity_model.vocab:
-            log("Using Entity Model")
-            return self.entity_model[word]
-        if self.entity_model is not None and word.lower() in self.entity_model.vocab:
-            log("Using Entity Model")
-            return self.entity_model[word.lower()]
         # Just return an empty vector
         return np.zeros(300, dtype='float32')
 
 
 if __name__ == '__main__':
-    gv = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
+    gv = GloveVectorizer(word2vec_path='./assets/300d.commoncrawl.converted.glove.txt')
 
     sent = 'the quick brown fox jumped over the lazy dog'
     t = [sent, 'the. quick, brown! fox,, !']

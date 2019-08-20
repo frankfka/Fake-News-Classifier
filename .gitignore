@@ -3,6 +3,8 @@ data/
 *.pkl
 *.bin.gz
 *.csv
+*.glove.txt
+*.vec
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

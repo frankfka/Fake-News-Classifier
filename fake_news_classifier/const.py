@@ -12,3 +12,4 @@ PKL_ARTICLE_TXT = 'text'
 TEXT_ONE_IDX = 'text_1'  # Claims + potentially other metadata
 TEXT_TWO_IDX = 'text_2'
 LABEL_IDX = 'label'
+CRED_IDX = 'credibility'

@@ -15,15 +15,16 @@ This class abstracts away the details of the FNC dataset. This is so that our mo
 If the dataset changes, only the preprocessors need to change.
 """
 
-# TODO: This method has changed. Need to run again
 
-
-def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
+def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_model = None):
     """
     Given the raw FNC data, return 3 lists of (text, other_text (supporting info), and labels)
         - Claims are appended with claimant
         - Articles are concatenated and the max_seq_len # of most relevant words are appended into supporting info
         - Labels are passed through as is
+
+    if credibility_model is not None, will return an additional 'credibilities' list of 1's and 0's
+        - Evaluated from non-processed data
     """
 
     # Raw Data
@@ -35,13 +36,15 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
     # Processed Data
     processed_claims = []
     supporting_info = []
+    credibilities = []
+    final_labels = []
 
     start_time = time.time()  # Used for tracking only
 
     '''
     Loop through all the claims and their article ID's
     '''
-    for j, (str_claim, str_claimant, article_ids) in enumerate(zip(claims, claimants, related_articles)):
+    for j, (str_claim, str_claimant, article_ids, label) in enumerate(zip(claims, claimants, related_articles, labels)):
 
         # Tracking use only
         if j % 1000 == 0 and j != 0:
@@ -67,13 +70,31 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len):
         article_ids = [str(article_id) for article_id in article_ids]  # Need to lookup by string
         # Get the articles with the given article ID's and only extract the text column
         articles = articles_df.loc[articles_df[const.PKL_ARTICLE_ID].isin(article_ids), const.PKL_ARTICLE_TXT]
-        support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len)
 
-        # Add to list
-        processed_claims.append(claim)
-        supporting_info.append(support_txt)
+        # If using credibility, we separate the articles
+        if credibility_model is None:
+            for article in articles:
+                credibility = get_credibility(article, credibility_model)
+                support_txt = get_relevant_info(claim, [article], vectorizer, max_seq_len)
+                # Add to list
+                credibilities.append(credibility)
+                processed_claims.append(claim)
+                supporting_info.append(support_txt)
+                final_labels.append(label)
 
-    return processed_claims, supporting_info, labels
+        else:
+            # If we are not using credibility model, construct support text from all articles
+            support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len)
+            # Add to list
+            processed_claims.append(claim)
+            supporting_info.append(support_txt)
+            final_labels.append(label)
+
+    # Return what's appropriate
+    if credibility_model is not None:
+        return processed_claims, supporting_info, final_labels, credibilities
+    else:
+        return processed_claims, supporting_info, final_labels
 
 
 def get_relevant_info(claim, articles, vectorizer, max_seq_len):
@@ -156,49 +177,6 @@ def has_ner_or_number_naive(sent_1, sent_2):
     return False
 
 
-# Check if sent_2 contains any named entities or numbers in sent_1
-# Naive because it does no NER
-def has_ner_or_number(sent_1, sent_2):
-    # Get number and NER's from sent_1
-    alphanumeric_sent_1 = keep_alphanumeric(sent_1)
-    sent_1_toks = tokenize_by_word(alphanumeric_sent_1)
-    sent_1_toks = clean_tokenized(sent_1_toks, remove_punctuation=True, remove_stopwords=True)
-    sent_1_toks = analyze_pos(sent_1_toks, lemmatize=False)
-    # Get numbers
-    numbers = list(filter(lambda tok_with_pos: tok_with_pos[1] == 'CD', sent_1_toks))  # has pos tags as tuple
-    numbers = [number[0] for number in numbers]  # no pos tags, just numbers
-
-    print(numbers)
-
-    # Get named entities
-    def get_named_entities(tokens):
-        chunked = ne_chunk(sent_1_toks)
-        continuous_chunk = []
-        current_chunk = []
-        for chunk in chunked:
-            if type(chunk) == Tree:
-                current_chunk.append(" ".join([token for token, pos in chunk.leaves()]))
-            elif current_chunk:
-                named_entity = " ".join(current_chunk)
-                if named_entity not in continuous_chunk:
-                    continuous_chunk.append(named_entity)
-                    current_chunk = []
-            else:
-                continue
-        return continuous_chunk
-    named_entities = list(get_named_entities(sent_1_toks))
-    print(named_entities)
-    named_entities = [entity.split() for entity in named_entities]
-    toks_of_interest = numbers + named_entities
-    print(toks_of_interest)
-    lowercase_sent_2 = sent_2.lower()
-    for tok in toks_of_interest:
-        # TODO: this matches a seq of characters (not words) so 'is' will match 'his'
-        if tok in lowercase_sent_2:
-            return True
-    return False
-
-
 # Returns cosine similarity between two texts
 def cos_sim(vec_text, other_vec_text):
     if len(vec_text) == 0 or len(other_vec_text) == 0:
@@ -213,6 +191,11 @@ def cos_sim(vec_text, other_vec_text):
 # Returns a column vector resulting from taking an element-wise mean
 def get_avg_vec(vecs):
     return np.mean(vecs, axis=0)
+
+
+# Returns 0/1 credibility from ArticleCredibilityPAC
+def get_credibility(article, credibility_model):
+    return credibility_model.predict([article], predict_args={})[0]
 
 
 if __name__ == '__main__':
@@ -247,9 +230,9 @@ if __name__ == '__main__':
             '22 franks in one room said hello.',
             '===/asdf/af https://google.com source article === asdf/af click here to view more'
         ])
-        from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
+        from fake_news_classifier.preprocessing.Word2VecVectorizer import Word2VecVectorizer
 
-        v = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
+        v = Word2VecVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
         relevant_info = get_relevant_info(claim, [article_one, article_two], v, 500)
         print(relevant_info)
         relevant_info = get_relevant_info(claim, [article_one, article_two], v, 5)
@@ -257,9 +240,9 @@ if __name__ == '__main__':
 
 
     def test_from_data():
-        from fake_news_classifier.preprocessing.GoogleNewsVectorizer import GoogleNewsVectorizer
+        from fake_news_classifier.preprocessing.Word2VecVectorizer import Word2VecVectorizer
         import pandas as pd
-        v = GoogleNewsVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
+        v = Word2VecVectorizer(path='./assets/GoogleNewsVectors.bin.gz')
         json_data = pd.read_pickle('../data/json_data.pkl')[0:1]  # just test first
         articles_data = pd.read_pickle('../data/articles_data.pkl')
         claims, supp_info, labels = preprocess_nn(json_data, articles_data, vectorizer=v, max_seq_len=500)
