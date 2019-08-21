@@ -92,8 +92,3 @@ def analyze_pos(tokenized, lemmatize):
 # Combines a word and its POS (ex. Airplane (Noun) -> Airplane_NN)
 def combine_token_pos(tokenized_with_pos):
     return [f"{w}_{pos}" for (w, pos) in tokenized_with_pos]
-
-
-def tokenize_by_sent(text):
-    """Tokenized a given text by sentence -> splits into array of sentences"""
-    return nltk.sent_tokenize(text)

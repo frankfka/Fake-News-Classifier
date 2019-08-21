@@ -6,8 +6,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 import fake_news_classifier.const as const
-from fake_news_classifier.preprocessing.text_util import tokenize_by_sent, tokenize_by_word, clean_sentence, \
-    analyze_pos, clean_tokenized, keep_alphanumeric
+from fake_news_classifier.preprocessing.text_util import tokenize_by_word, \
+    analyze_pos, clean_tokenized, keep_alphanumeric, tokenize_by_sentence
 from fake_news_classifier.util import log
 
 """
@@ -113,7 +113,7 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
 
     # Loop through all articles to construct supporting information
     for article in articles:
-        sentences = tokenize_by_sent(article)
+        sentences = tokenize_by_sentence(article)
 
         '''
         For each sentence, we clean and vectorize, then retrieve the cosine similarity of the claim vs the sentence
