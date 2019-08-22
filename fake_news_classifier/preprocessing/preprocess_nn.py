@@ -6,8 +6,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 import fake_news_classifier.const as const
-from fake_news_classifier.preprocessing.text_util import tokenize_by_word, \
-    analyze_pos, clean_tokenized, keep_alphanumeric, tokenize_by_sentence
+from fake_news_classifier.preprocessing.text_util import tokenize_by_sentence, tokenize_by_word, clean_sentence, \
+    analyze_pos, clean_tokenized, keep_alphanumeric, convert_nums_to_words
 from fake_news_classifier.util import log
 
 """
@@ -55,11 +55,12 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_mod
         '''
         Process Claim: 
             Final Claim = Claimant + Claim
+            - Convert numbers to string representation
             - Take out all non-alphanumeric
             - Keep case - may be important
         '''
         claim = str_claimant + ' ' + str_claim
-        claim = keep_alphanumeric(claim)
+        claim = clean_txt(claim)
 
         '''
         Process articles
@@ -72,7 +73,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_mod
         articles = articles_df.loc[articles_df[const.PKL_ARTICLE_ID].isin(article_ids), const.PKL_ARTICLE_TXT]
 
         # If using credibility, we separate the articles
-        if credibility_model is None:
+        if credibility_model is not None:
             for article in articles:
                 credibility = get_credibility(article, credibility_model)
                 support_txt = get_relevant_info(claim, [article], vectorizer, max_seq_len)
@@ -108,7 +109,7 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
     """
 
     # Note: expects claim to be already cleaned
-    vec_claim = vectorizer.transform_one(claim)  # Claim vector - we'll use this to compare using cosine similarity
+    vec_claim = vectorizer.transform_txt(claim)  # Claim vector - we'll use this to compare using cosine similarity
     similarities_and_sents = []  # Stores tuples of (cos sim, sentence)
 
     # Loop through all articles to construct supporting information
@@ -119,18 +120,14 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
         For each sentence, we clean and vectorize, then retrieve the cosine similarity of the claim vs the sentence
         '''
         for sentence in sentences:
-            # Only process alphanumeric characters
-            sentence = keep_alphanumeric(sentence)
+            # Basic cleaning on sentence
+            sentence = clean_txt(sentence)
             # Don't process for sentences less than 40 characters long - this usually means improper sentences/words
             if len(sentence) < 40:
                 continue
             # Get vector of sentence and find cosine similarity
-            vec_sent = vectorizer.transform_one(sentence)
+            vec_sent = vectorizer.transform_txt(sentence)
             similarity = cos_sim(vec_claim, vec_sent)
-            # See if any named entities/numbers appear together - if so, take the average of similarity & 0.9
-            # This raises the similarity
-            if has_ner_or_number_naive(claim, sentence):
-                similarity = np.mean([0.9, similarity])
             # Add to results
             similarities_and_sents.append((similarity, sentence))
 
@@ -153,6 +150,7 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
 
 # Check if sent_2 contains any named entities or numbers in sent_1
 # Naive because it does no NER
+# TODO: not being used - not sure if its too useful
 def has_ner_or_number_naive(sent_1, sent_2):
     # Just keep alphanumerics
     alphanumeric_sent_1 = keep_alphanumeric(sent_1)
@@ -196,6 +194,15 @@ def get_avg_vec(vecs):
 # Returns 0/1 credibility from ArticleCredibilityPAC
 def get_credibility(article, credibility_model):
     return credibility_model.predict([article], predict_args={})[0]
+
+
+# Does basic preprocessing on a string sentence to make it vectorization friendly
+# - Converts numbers -> word representation (42 to fourty two)
+# - Strips all except for alphanumeric
+def clean_txt(txt):
+    txt = convert_nums_to_words(txt)
+    txt = keep_alphanumeric(txt)
+    return txt
 
 
 if __name__ == '__main__':

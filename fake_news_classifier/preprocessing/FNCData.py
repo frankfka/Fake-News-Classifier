@@ -75,8 +75,8 @@ class FNCData(object):
         sample_labels = sample_data[LABEL_IDX]
         if vectorize:
             return (
-                self.vectorizer.transform_many(texts, self.max_seq_len),
-                self.vectorizer.transform_many(other_texts, self.max_seq_len),
+                self.vectorizer.transform_list_of_txt(texts, self.max_seq_len),
+                self.vectorizer.transform_list_of_txt(other_texts, self.max_seq_len),
                 creds,
                 sample_labels
             )

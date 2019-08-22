@@ -4,17 +4,37 @@ Experiments are in reverse chronological order (most recent first)
 *Notes:*
 * Confusion matrix: Y-Axis is true, X-Axis is predicted. Label Order: (Disagree, Part-Agree, Agree) Left-to-Right/Up-to-Down
 
+## To Try
+* Training with max label bias = 1
+* Training with no max label bias
+
 ## Update
 This configuration seems to give pretty decent results (Default learning rate):
-    ```python
-    model.SEQ_LEN: 500,
-    model.EMB_DIM: 300,
-    model.CONV_KERNEL_SIZE: 5,
-    model.DENSE_UNITS: 1024,
-    model.CONV_UNITS: 128,
-    model.LSTM_UNITS: 128
-    ```
 
+```
+model.SEQ_LEN: 500,
+model.EMB_DIM: 300,
+model.CONV_KERNEL_SIZE: 5,
+model.DENSE_UNITS: 1024,
+model.CONV_UNITS: 256,
+model.LSTM_UNITS: 128
+```
+
+
+The best results were found with the *FastText* tokenizer (max label bias = 1.5):
+
+```
+INFO: Accuracy: 0.6162005785920925
+INFO: F1 Score (Macro): 0.47555855029405
+INFO: F1 Score (Micro): 0.6162005785920925
+INFO: F1 Score (Weighted): 0.6017482973478836
+
+[[0.70111184 0.25376063 0.04512753]
+ [0.30517928 0.65099602 0.0438247 ]
+ [0.32721713 0.58715596 0.08562691]]
+```
+
+This was BEFORE num2word
 
 ### Log 6 - Aug 15 (LSTM Experiments)
 #### Parameters

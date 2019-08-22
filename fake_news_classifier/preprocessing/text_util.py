@@ -1,6 +1,7 @@
 import re
 import string
 import nltk
+from num2words import num2words
 from nltk.corpus import wordnet as wn
 from nltk import WordNetLemmatizer, pos_tag, word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
@@ -92,3 +93,20 @@ def analyze_pos(tokenized, lemmatize):
 # Combines a word and its POS (ex. Airplane (Noun) -> Airplane_NN)
 def combine_token_pos(tokenized_with_pos):
     return [f"{w}_{pos}" for (w, pos) in tokenized_with_pos]
+
+
+# Converts numbers in a sentence to their word representation
+def convert_nums_to_words(txt):
+    # If this is a number, returns the word representation (ex. 4.2 to four point two). Otherwise, return original word
+    # RETURN format: an array of words ['four', 'point', 'two'] or ['original_word']
+    def num_2_word(word):
+        processed_word = re.sub('[^0-9a-zA-Z.]+', '', word)  # All non-alphanumeric (or period) to empty str
+        try:
+            word_rep = num2words(processed_word)  # ex. forty-two
+            word_rep = keep_alphanumeric(word_rep) # ex. forty two
+            return word_rep.split()
+        except Exception:
+            return word.split()
+
+    tokens = tokenize_by_word(txt)
+    return ' '.join([processed for token in tokens for processed in num_2_word(token)])

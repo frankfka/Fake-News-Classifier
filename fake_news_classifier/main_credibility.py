@@ -7,6 +7,7 @@ from fake_news_classifier.const import LABEL_IDX, CRED_IDX, TEXT_TWO_IDX, TEXT_O
 from fake_news_classifier.model.ArticleCredibilityPAC import ArticleCredibilityPAC
 from fake_news_classifier.model.util import categorical_to_idx, plot_keras_history, eval_predictions
 from fake_news_classifier.preprocessing.FNCData import FNCData
+from fake_news_classifier.preprocessing.GensimVectorizer import GensimVectorizer
 from fake_news_classifier.preprocessing.Word2VecVectorizer import Word2VecVectorizer
 from fake_news_classifier.preprocessing.preprocess_nn import preprocess_nn
 
@@ -102,22 +103,25 @@ def build_train_eval(train_df, test_df):
 # Load all dependencies
 checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
-v = Word2VecVectorizer()
-# credibility_pac = ArticleCredibilityPAC(args={
-#     ArticleCredibilityPAC.PKL_PATH: './model/ArticleCredibilityPAC_Trained.pkl'
-# })
+v = GensimVectorizer(
+    path='./preprocessing/assets/300d.commoncrawl.fasttext.vec',
+    binary=False
+)
+credibility_pac = ArticleCredibilityPAC(args={
+    ArticleCredibilityPAC.PKL_PATH: './model/ArticleCredibilityPAC_Trained.pkl'
+})
 
 data = load_preprocessed(
-    pkl_path='./data/train_data.pkl',
+    pkl_path='./data/train_data_individual.pkl',
     # fnc_pkl_path='./data/train_data_fnc.pkl',
     vectorizer=v,
-    max_seq_len=500,
+    max_seq_len=256,
     max_label_bias=1.5
 )
 test_data = load_preprocessed(
-    pkl_path='./data/test_data.pkl',
+    pkl_path='./data/test_data_individual.pkl',
     vectorizer=v,
-    max_seq_len=500
+    max_seq_len=256
 )
 # json_df, articles_df = load_raw_data('./data/json_data.pkl', './data/articles_data.pkl')
 # data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)

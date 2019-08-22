@@ -107,7 +107,7 @@ class CLSTMWithDense(FNCModel):
         )
 
         merged_mlp = Concatenate()([text_one_nn.output, text_two_nn.output])
-        merged_mlp = BatchNormalization()(merged_mlp)
+        # merged_mlp = BatchNormalization()(merged_mlp)
         merged_mlp = Dropout(dropout)(merged_mlp)
         merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
         merged_mlp = Dropout(dropout)(merged_mlp)

@@ -6,7 +6,7 @@ import fake_news_classifier.model.CLSTMWithDense as model
 import fake_news_classifier.const as const
 from fake_news_classifier.model.util import plot_keras_history, categorical_to_idx, eval_predictions, k_fold_indicies
 from fake_news_classifier.preprocessing.FNCData import FNCData
-from fake_news_classifier.preprocessing.Word2VecVectorizer import Word2VecVectorizer
+from fake_news_classifier.preprocessing.GensimVectorizer import GensimVectorizer
 from fake_news_classifier.preprocessing.preprocess_nn import preprocess_nn
 from fake_news_classifier.util import log
 
@@ -101,7 +101,7 @@ def build_train_eval(train_df, test_df):
 checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
 
-v = Word2VecVectorizer()  #(entity_path='./preprocessing/assets/EntityWord2Vec.bin.gz')
+v = GensimVectorizer(path='./preprocessing/assets/300d.commoncrawl.fasttext.vec', binary=False)
 data = load_preprocessed(
     pkl_path='./data/train_data.pkl',
     fnc_pkl_path='./data/train_data_fnc.pkl',
