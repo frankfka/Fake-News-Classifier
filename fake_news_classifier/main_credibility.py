@@ -3,12 +3,11 @@ import time
 import pandas as pd
 
 import fake_news_classifier.model.CredCLSTMWithDense as model
-from fake_news_classifier.const import LABEL_IDX, CRED_IDX, TEXT_TWO_IDX, TEXT_ONE_IDX
+from fake_news_classifier.const import LABEL_IDX, CRED_IDX, TEXT_TWO_IDX, TEXT_ONE_IDX, CLAIM_ID_IDX
 from fake_news_classifier.model.ArticleCredibilityPAC import ArticleCredibilityPAC
 from fake_news_classifier.model.util import categorical_to_idx, plot_keras_history, eval_predictions
 from fake_news_classifier.preprocessing.FNCData import FNCData
 from fake_news_classifier.preprocessing.GensimVectorizer import GensimVectorizer
-from fake_news_classifier.preprocessing.Word2VecVectorizer import Word2VecVectorizer
 from fake_news_classifier.preprocessing.preprocess_nn import preprocess_nn
 
 
@@ -37,7 +36,6 @@ def preprocess(json_data, articles_data, credibility_model, vectorizer, max_seq_
 
 # Load preprocessed data, returns FNCData object
 def load_preprocessed(pkl_path, vectorizer, max_seq_len, max_label_bias=None, fnc_pkl_path=None):
-    # Shuffle and just take 5000 for now to tune model
     df = pd.read_pickle(pkl_path)
     if fnc_pkl_path is not None:
         df_fnc = pd.read_pickle(fnc_pkl_path)
@@ -87,17 +85,81 @@ def build_train_eval(train_df, test_df):
     # Evaluate
     y_val_true = test_df[LABEL_IDX]
     y_val_pred = nn.predict(test_df, predict_args={})
-    y_val_pred = categorical_to_idx(y_val_pred)
+    y_val_pred = categorical_to_idx(y_val_pred)  # Has claims
+
     plot_keras_history(history, True)
+
+    log("Evaluating Raw Results", header=True)
     eval_predictions(y_true=y_val_true, y_pred=y_val_pred,
                      classes=['disagree (0)', 'discuss (1)', 'agree (2)'], print_results=True)
 
-    # See which indicies were not predicted correctly, return (idx, predicted) for future processing
-    incorrect_idx = []
-    for i, (y_pred, y_true) in enumerate(zip(y_val_pred, y_val_true)):
-        if y_pred != y_true:
-            incorrect_idx.append((i, y_pred))
-    return incorrect_idx
+    log("Evaluating Processed Results", header=True)
+
+    # TODO: Temporary solution to incorporate claim ID to verify prediction
+    # Save first so we don't lose all the information
+    pd.DataFrame(
+        data={'claim': test_df[TEXT_ONE_IDX], 'pred': y_val_pred, 'true': y_val_true}
+    ).to_pickle('./raw_pred_true.pkl')
+    log("Saved raw predictions")
+
+    claim_ids = pd.read_pickle('./data/test_data_individual.pkl')[CLAIM_ID_IDX]  # Unique claim indicies
+    claim_ids_with_duplicates = []  # Corresponds to predictions
+    index = 0
+    claim = test_df[TEXT_ONE_IDX][0]
+    for idx, row in test_df.iterrows():
+        if row[TEXT_ONE_IDX] != claim:
+            # If the claim has changed, jump to the next claim index
+            claim = row[TEXT_ONE_IDX]
+            index += 1
+        claim_ids_with_duplicates.append(claim_ids[index])
+
+    # Save data with corresponding claim ID's
+    processed_test_df = pd.DataFrame(
+        data={CLAIM_ID_IDX: claim_ids_with_duplicates, 'claim': test_df[TEXT_ONE_IDX],
+              'pred': y_val_pred, 'true': y_val_true}
+    )
+    processed_test_df.to_pickle('./processed_pred_true_id_dup.pkl')
+    log("Saved raw predictions with ID's")
+
+    # Key is claim ID, value is list of predictions
+    pred_dict = dict()
+    true_dict = dict()
+    for idx, row in processed_test_df.iterrows():
+        claim_id = row[CLAIM_ID_IDX]
+        pred = row['pred']
+        true = row['true']
+        if claim_id in pred_dict:
+            pred_dict[claim_id].append(pred)
+            true_dict[claim_id].append(true)
+        else:
+            pred_dict[claim_id] = [pred]
+            true_dict[claim_id] = [true]
+
+    # Get keys
+    dict_keys = list(pred_dict.keys())
+
+    # Iterate over keys, get mean of lists
+    import numpy as np
+    true = []
+    pred = []
+    for key in dict_keys:
+        true.append(
+            int(np.mean(true_dict[key]))
+        )
+        pred.append(
+            int(round(float(np.mean(pred_dict[key]))))
+        )
+
+    # Save
+    processed_results_df = pd.DataFrame(data={
+        CLAIM_ID_IDX: dict_keys,
+        'pred': pred,
+        'true': true
+    })
+    processed_results_df.to_pickle('./processed_pred_true_id_final.pkl')
+    log("Saved processed predictions with ID's")
+    eval_predictions(y_true=true, y_pred=pred,
+                     classes=['disagree (0)', 'discuss (1)', 'agree (2)'], print_results=True)
 
 
 # Load all dependencies
@@ -137,17 +199,7 @@ trainable_df = load_batch(data)
 testable_df = load_batch(test_data)
 
 # Train, eval model, then get the failed indicies and save them for processing
-failures = build_train_eval(train_df=trainable_df, test_df=testable_df)
-fail_idx = [failure[0] for failure in failures]
-fail_pred = [failure[1] for failure in failures]
-fail_txt, fail_other_txt, creds, true_labels = test_data.get(idx=fail_idx)
-pd.DataFrame(data={
-    TEXT_ONE_IDX: fail_txt,
-    TEXT_TWO_IDX: fail_other_txt,
-    CRED_IDX: creds,
-    'true_label': true_labels,
-    'pred_label': fail_pred
-}).to_csv("CredCLSTMDense_Failed.csv")
+build_train_eval(train_df=trainable_df, test_df=testable_df)
 
 now = time.time()
 log(f"Training completed in {now - checkpoint_time} seconds")
