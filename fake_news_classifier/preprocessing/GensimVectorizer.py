@@ -69,7 +69,7 @@ class GensimVectorizer(object):
                 vectors.append(vec)
             else:
                 # Default to a zero vector
-                vectors.append(np.zeros(300, dtype='float32'))
+                vectors.append(np.zeros(300, dtype='float16'))
             idx += 1
 
         return vectors
@@ -78,10 +78,9 @@ class GensimVectorizer(object):
     def get_word_vec(self, word):
         # Separator - return ones
         if word == "|SEP|":
-            return np.ones(300, dtype='float32')
+            return np.ones(300, dtype='float16')
         # Best possible case - word in model, return that vector
         if word in self.model.vocab:
-            print(f"{word} found")
             return self.model[word]
         # Try a lowercase representation
         if word.lower() in self.model.vocab:

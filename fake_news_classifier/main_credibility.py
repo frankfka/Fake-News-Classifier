@@ -53,7 +53,7 @@ def load_preprocessed(pkl_path, vectorizer, max_seq_len, max_label_bias=None, fn
 
 # Returns a vectorized dataframe input to the model, given an FNCData object
 def load_batch(fnc_data, idx=None):
-    vec_txt, vec_other_txt, creds, labels = fnc_data.get(vectorize=True, idx=idx)
+    vec_txt, vec_other_txt, creds, labels = fnc_data.get(vectorize=True, idx=idx, use_ngrams=True)
     return pd.DataFrame(data={
         TEXT_ONE_IDX: vec_txt,
         TEXT_TWO_IDX: vec_other_txt,
@@ -102,32 +102,14 @@ def build_train_eval(train_df, test_df):
     ).to_pickle('./raw_pred_true.pkl')
     log("Saved raw predictions")
 
-    claim_ids = pd.read_pickle('./data/test_data_individual.pkl')[CLAIM_ID_IDX]  # Unique claim indicies
-    claim_ids_with_duplicates = []  # Corresponds to predictions
-    index = 0
-    claim = test_df[TEXT_ONE_IDX][0]
-    for idx, row in test_df.iterrows():
-        if row[TEXT_ONE_IDX] != claim:
-            # If the claim has changed, jump to the next claim index
-            claim = row[TEXT_ONE_IDX]
-            index += 1
-        claim_ids_with_duplicates.append(claim_ids[index])
-
-    # Save data with corresponding claim ID's
-    processed_test_df = pd.DataFrame(
-        data={CLAIM_ID_IDX: claim_ids_with_duplicates, 'claim': test_df[TEXT_ONE_IDX],
-              'pred': y_val_pred, 'true': y_val_true}
-    )
-    processed_test_df.to_pickle('./processed_pred_true_id_dup.pkl')
-    log("Saved raw predictions with ID's")
+    claim_ids = list(pd.read_pickle('./data/processed/test_data_individual_claimid_credible.pkl')['claim_id'])
 
     # Key is claim ID, value is list of predictions
     pred_dict = dict()
     true_dict = dict()
-    for idx, row in processed_test_df.iterrows():
-        claim_id = row[CLAIM_ID_IDX]
-        pred = row['pred']
-        true = row['true']
+    for idx, claim_id in enumerate(claim_ids):
+        pred = y_val_pred[idx]
+        true = y_val_true[idx]
         if claim_id in pred_dict:
             pred_dict[claim_id].append(pred)
             true_dict[claim_id].append(true)
@@ -140,6 +122,7 @@ def build_train_eval(train_df, test_df):
 
     # Iterate over keys, get mean of lists
     import numpy as np
+
     true = []
     pred = []
     for key in dict_keys:
@@ -152,12 +135,11 @@ def build_train_eval(train_df, test_df):
 
     # Save
     processed_results_df = pd.DataFrame(data={
-        CLAIM_ID_IDX: dict_keys,
+        'claim_id': dict_keys,
         'pred': pred,
-        'true': true
+        'true_label': true
     })
     processed_results_df.to_pickle('./processed_pred_true_id_final.pkl')
-    log("Saved processed predictions with ID's")
     eval_predictions(y_true=true, y_pred=pred,
                      classes=['disagree (0)', 'discuss (1)', 'agree (2)'], print_results=True)
 
@@ -174,14 +156,14 @@ credibility_pac = ArticleCredibilityPAC(args={
 })
 
 data = load_preprocessed(
-    pkl_path='./data/train_data_individual.pkl',
+    pkl_path='./data/processed/train_data_individual_claimid_nodup.pkl',
     # fnc_pkl_path='./data/train_data_fnc.pkl',
     vectorizer=v,
     max_seq_len=256,
     max_label_bias=1.5
 )
 test_data = load_preprocessed(
-    pkl_path='./data/test_data_individual.pkl',
+    pkl_path='./data/processed/test_data_individual_claimid_credible.pkl',
     vectorizer=v,
     max_seq_len=256
 )

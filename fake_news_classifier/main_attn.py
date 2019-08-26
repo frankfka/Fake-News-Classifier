@@ -2,7 +2,7 @@ import time
 
 import pandas as pd
 
-import fake_news_classifier.model.CLSTMWithDense as model
+import fake_news_classifier.model.CAttnLSTMWithDense as model
 import fake_news_classifier.const as const
 from fake_news_classifier.model.util import plot_keras_history, categorical_to_idx, eval_predictions, k_fold_indicies
 from fake_news_classifier.preprocessing.FNCData import FNCData
@@ -54,7 +54,7 @@ def k_fold(fnc_data, k):
 
 # Returns a vectorized dataframe input to the model, given an FNCData object
 def load_batch(fnc_data, idx=None):
-    vec_txt, vec_other_txt, creds, labels = fnc_data.get(vectorize=True, idx=idx)
+    vec_txt, vec_other_txt, creds, labels = fnc_data.get(vectorize=True, idx=idx, use_ngrams=True)
     return pd.DataFrame(data={
         const.TEXT_ONE_IDX: vec_txt,
         const.TEXT_TWO_IDX: vec_other_txt,
@@ -73,7 +73,7 @@ def build_train_eval(train_df, test_df):
         model.CONV_UNITS: 256,
         model.LSTM_UNITS: 128
     }
-    nn = model.CLSTMWithDense(model_args)
+    nn = model.CAttnLSTMWithDense(model_args)
     # Train model
     train_args = {
         model.BATCH_SIZE: 128,
@@ -102,21 +102,21 @@ checkpoint_time = time.time()
 log("Loading Preprocessed Data", header=True)
 
 v = GensimVectorizer(path='./preprocessing/assets/300d.commoncrawl.fasttext.vec', binary=False)
-json_df, articles_df = load_raw_data('./data/raw/json_data.pkl', './data/raw/articles_data.pkl')
-data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=256)
-data.data.to_pickle('./data/processed_data_new.pkl')
-# data = load_preprocessed(
-#     pkl_path='./data/processed/train_data.pkl',
-#     fnc_pkl_path='./data/processed/train_data_fnc.pkl',
-#     vectorizer=v,
-#     max_seq_len=500,
-#     max_label_bias=1.5
-# )
+data = load_preprocessed(
+    pkl_path='./data/processed/train_data.pkl',
+    fnc_pkl_path='./data/processed/train_data_fnc.pkl',
+    vectorizer=v,
+    max_seq_len=500,
+    max_label_bias=1.5
+)
 test_data = load_preprocessed(
     pkl_path='./data/processed/test_data.pkl',
     vectorizer=v,
     max_seq_len=500
 )
+# json_df, articles_df = load_raw_data('./data/json_data.pkl', './data/articles_data.pkl')
+# data = preprocess(json_df, articles_df, vectorizer=v, max_seq_len=500)
+# data.data.to_pickle('./data/train_data_individual.pkl')
 
 now = time.time()
 log(f"Loaded preprocessed data in {now - checkpoint_time}s")
@@ -137,7 +137,7 @@ pd.DataFrame(data={
     const.TEXT_TWO_IDX: fail_other_txt,
     'true_label': true_labels,
     'pred_label': fail_pred
-}).to_csv("CLSTMDense_Failed.csv")
+}).to_csv("CAttnLSTMDense_Failed.csv")
 
 now = time.time()
 log(f"Training completed in {now - checkpoint_time} seconds")

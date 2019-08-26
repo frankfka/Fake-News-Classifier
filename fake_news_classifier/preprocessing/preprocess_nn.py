@@ -16,7 +16,7 @@ If the dataset changes, only the preprocessors need to change.
 """
 
 
-def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_model = None):
+def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True, credibility_model=None):
     """
     Given the raw FNC data, return 3 lists of (text, other_text (supporting info), and labels)
         - Claims are appended with claimant
@@ -46,6 +46,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_mod
     '''
     for j, (str_claim, str_claimant, article_ids, label) in enumerate(zip(claims, claimants, related_articles, labels)):
 
+        log(j)
         # Tracking use only
         if j % 1000 == 0 and j != 0:
             now = time.time()
@@ -76,7 +77,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_mod
         if credibility_model is not None:
             for article in articles:
                 credibility = get_credibility(article, credibility_model)
-                support_txt = get_relevant_info(claim, [article], vectorizer, max_seq_len)
+                support_txt = get_relevant_info(claim, [article], vectorizer, max_seq_len, use_ngrams)
                 # Add to list
                 credibilities.append(credibility)
                 processed_claims.append(claim)
@@ -85,7 +86,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_mod
 
         else:
             # If we are not using credibility model, construct support text from all articles
-            support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len)
+            support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len, use_ngrams)
             # Add to list
             processed_claims.append(claim)
             supporting_info.append(support_txt)
@@ -98,7 +99,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, credibility_mod
         return processed_claims, supporting_info, final_labels
 
 
-def get_relevant_info(claim, articles, vectorizer, max_seq_len):
+def get_relevant_info(claim, articles, vectorizer, max_seq_len, use_ngrams):
     """
     Returns the most relevant sentences relating to a claim using the average vectors of words and cosine similarity
     - Extra whitespace is trimmed and removed
@@ -109,7 +110,8 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
     """
 
     # Note: expects claim to be already cleaned
-    vec_claim = vectorizer.transform_txt(claim)  # Claim vector - we'll use this to compare using cosine similarity
+    vec_claim = vectorizer.transform_txt(claim, max_seq_len,
+                                         use_ngrams=use_ngrams)  # Claim vector - we'll use this to compare using cosine similarity
     similarities_and_sents = []  # Stores tuples of (cos sim, sentence)
 
     # Loop through all articles to construct supporting information
@@ -126,7 +128,8 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len):
             if len(sentence) < 40:
                 continue
             # Get vector of sentence and find cosine similarity
-            vec_sent = vectorizer.transform_txt(sentence)
+            vec_sent = vectorizer.transform_txt(sentence, max_seq_len,
+                                                use_ngrams=use_ngrams)
             similarity = cos_sim(vec_claim, vec_sent)
             # Add to results
             similarities_and_sents.append((similarity, sentence))

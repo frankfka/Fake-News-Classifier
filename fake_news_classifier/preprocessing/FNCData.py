@@ -64,7 +64,7 @@ class FNCData(object):
 
     # Get data (text, other_text, labels)
     # limits to certain indicies if provided, transforms using vectorizer if provided
-    def get(self, vectorize=False, idx=None):
+    def get(self, vectorize=False, idx=None, use_ngrams=False):
         sample_data = self.data
         if idx is not None:
             # Limit to certain indicies
@@ -75,8 +75,8 @@ class FNCData(object):
         sample_labels = sample_data[LABEL_IDX]
         if vectorize:
             return (
-                self.vectorizer.transform_list_of_txt(texts, self.max_seq_len),
-                self.vectorizer.transform_list_of_txt(other_texts, self.max_seq_len),
+                self.vectorizer.transform_list_of_txt(texts, self.max_seq_len, use_ngrams=use_ngrams),
+                self.vectorizer.transform_list_of_txt(other_texts, self.max_seq_len, use_ngrams=use_ngrams),
                 creds,
                 sample_labels
             )

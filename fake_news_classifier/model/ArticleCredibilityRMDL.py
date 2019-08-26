@@ -1,37 +1,7 @@
 import pickle
 
 from RMDL.RMDL_Text import Text_Classification
-
-from fake_news_classifier.preprocessing.text_util import tokenize_by_word, clean_tokenized, analyze_pos, \
-    combine_token_pos
 from fake_news_classifier.model.FNCModel import FNCModel
-
-
-# Load model from disk
-def load_from_pickle(path):
-    with open(path, 'rb') as file:
-        loaded_dict = pickle.load(file)
-    loaded_model = loaded_dict[ArticleCredibilityPAC.PKL_PAC_KEY]
-    loaded_vec = loaded_dict[ArticleCredibilityPAC.PKL_TFIDF_KEY]
-    return loaded_model, loaded_vec
-
-
-# Called before training and predicting on a specific corpus
-def preprocess(txt):
-    # Tokenize by word
-    tokenized = tokenize_by_word(txt)
-    # Clean the tokenized
-    tokenized = clean_tokenized(
-        tokenized,
-        lowercase=True,
-        remove_stopwords=True,
-        remove_punctuation=True
-    )
-    # Analyze part of speech, lemmatize if needed
-    tokenized = analyze_pos(tokenized, lemmatize=True)
-    # (word, pos) -> word_pos
-    tokenized = combine_token_pos(tokenized)
-    return ' '.join(tokenized)
 
 
 class ArticleCredibilityRMDL(FNCModel):
@@ -97,7 +67,7 @@ if __name__ == '__main__':
     Text_Classification(X_train, Y_train, X_test, Y_test_true, batch_size=128,
                         EMBEDDING_DIM=300, MAX_SEQUENCE_LENGTH=500, MAX_NB_WORDS=75000,
                         GloVe_dir="../preprocessing/assets", GloVe_file="300d.commoncrawl.glove.txt",
-                        sparse_categorical=True, random_deep=[3, 3, 3], epochs=[500, 500, 500], plot=True,
+                        sparse_categorical=True, random_deep=[3, 3, 3], epochs=[20, 20, 20], plot=True,
                         min_hidden_layer_dnn=1, max_hidden_layer_dnn=8, min_nodes_dnn=128, max_nodes_dnn=1024,
                         min_hidden_layer_rnn=1, max_hidden_layer_rnn=5, min_nodes_rnn=32, max_nodes_rnn=128,
                         min_hidden_layer_cnn=3, max_hidden_layer_cnn=10, min_nodes_cnn=128, max_nodes_cnn=512,

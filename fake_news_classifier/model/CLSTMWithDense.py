@@ -107,7 +107,7 @@ class CLSTMWithDense(FNCModel):
         )
 
         merged_mlp = Concatenate()([text_one_nn.output, text_two_nn.output])
-        # merged_mlp = BatchNormalization()(merged_mlp)
+        merged_mlp = BatchNormalization()(merged_mlp)
         merged_mlp = Dropout(dropout)(merged_mlp)
         merged_mlp = Dense(dense_num_hidden, activation='relu')(merged_mlp)
         merged_mlp = Dropout(dropout)(merged_mlp)
@@ -144,8 +144,8 @@ class CLSTMWithDense(FNCModel):
         labels = data[LABEL_IDX]
 
         # Do sequence padding
-        texts = pad_sequences(texts, maxlen=self.seq_len, dtype='float32', truncating='post')
-        other_texts = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32', truncating='post')
+        texts = pad_sequences(texts, maxlen=self.seq_len, dtype='float16', truncating='post')
+        other_texts = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float16', truncating='post')
         labels = to_categorical(labels, num_classes=3)
         class_weights = get_class_weights(labels)
         log("Calculated class weights")
@@ -176,8 +176,8 @@ class CLSTMWithDense(FNCModel):
         texts = data[TEXT_ONE_IDX]
         other_texts = data[TEXT_TWO_IDX]
 
-        titles = pad_sequences(texts, maxlen=self.seq_len, dtype='float32', truncating='post')
-        bodies = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float32', truncating='post')
+        titles = pad_sequences(texts, maxlen=self.seq_len, dtype='float16', truncating='post')
+        bodies = pad_sequences(other_texts, maxlen=self.seq_len, dtype='float16', truncating='post')
         return self.model.predict(
             [titles, bodies],
             batch_size=batch_size,

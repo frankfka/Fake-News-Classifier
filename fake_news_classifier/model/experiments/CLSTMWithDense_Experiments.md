@@ -24,10 +24,10 @@ model.LSTM_UNITS: 128
 The best results were found with the *FastText* tokenizer (max label bias = 1.5):
 
 ```
-INFO: Accuracy: 0.6162005785920925
-INFO: F1 Score (Macro): 0.47555855029405
-INFO: F1 Score (Micro): 0.6162005785920925
-INFO: F1 Score (Weighted): 0.6017482973478836
+* Accuracy: 0.6162005785920925
+* F1 Score (Macro): 0.47555855029405
+* F1 Score (Micro): 0.6162005785920925
+* F1 Score (Weighted): 0.6017482973478836
 
 [[0.70111184 0.25376063 0.04512753]
  [0.30517928 0.65099602 0.0438247 ]
@@ -54,50 +54,59 @@ This was BEFORE num2word
 #### Results
 * Trained on one fold
 
-    ##### LSTM 1024 Units (TODO)
+    ##### LSTM 1024 Units
+    
     * Training time takes REALLY long - skipping for now
     
-    ##### LSTM 32 Units (TODO)
-    [[0.33005894 0.31434185 0.35559921]
- [0.1237721  0.46954813 0.40667976]
- [0.16764706 0.31764706 0.51470588]]
-    INFO: Accuracy: 0.42857142857142855
-INFO: F1 Score (Macro): 0.4265500895504983
-INFO: F1 Score (Micro): 0.42857142857142855
-INFO: F1 Score (Weighted): 0.431397725165404
-INFO: Fold 0 completed in 4157.172898054123 seconds
-
-    ##### LSTM 64 Units (TODO)
+    ##### LSTM 32 Units
     
-    [[0.64636542 0.35363458 0.        ]
- [0.3280943  0.66994106 0.00196464]
- [0.41764706 0.57941176 0.00294118]]
- Accuracy: 0.49410898379970547
-INFO: F1 Score (Macro): 0.3784485395728188
-INFO: F1 Score (Micro): 0.49410898379970547
-INFO: F1 Score (Weighted): 0.4248178319838934
+    ```python
+    [[0.33005894 0.31434185 0.35559921]
+     [0.1237721  0.46954813 0.40667976]
+     [0.16764706 0.31764706 0.51470588]]
+    ```
+    * Accuracy: 0.42857142857142855
+    * F1 Score (Macro): 0.4265500895504983
+    * F1 Score (Micro): 0.42857142857142855
+    * F1 Score (Weighted): 0.431397725165404
+    * Fold 0 completed in 4157.172898054123 seconds
 
+    ##### LSTM 64 Units
+    ```python
+    [[0.64636542 0.35363458 0.        ]
+    [0.3280943  0.66994106 0.00196464]
+    [0.41764706 0.57941176 0.00294118]]
+    ```
+    * Accuracy: 0.49410898379970547
+    * F1 Score (Macro): 0.3784485395728188
+    * F1 Score (Micro): 0.49410898379970547
+    * F1 Score (Weighted): 0.4248178319838934
 
     ##### LSTM 256 Units 
+    
+    ```
     [[0.72102161 0.2043222  0.07465619]
- [0.47740668 0.44007859 0.08251473]
- [0.53235294 0.32941176 0.13823529]]
-    Accuracy: 0.4698085419734904
-INFO: F1 Score (Macro): 0.41265868350846796
-INFO: F1 Score (Micro): 0.4698085419734904
-INFO: F1 Score (Weighted): 0.4389636812197684
+     [0.47740668 0.44007859 0.08251473]
+     [0.53235294 0.32941176 0.13823529]]
+    ```
+
+    * Accuracy: 0.4698085419734904
+    * F1 Score (Macro): 0.41265868350846796
+    * F1 Score (Micro): 0.4698085419734904
+    * F1 Score (Weighted): 0.4389636812197684
     
     ##### LSTM 128 Units + 1028 CNN
     
+    ```
     [[0.67779961 0.32023576 0.00196464]
- [0.33595285 0.66208251 0.00196464]
- [0.44705882 0.53529412 0.01764706]]
-
-            
-INFO: Accuracy: 0.5066273932253313
-INFO: F1 Score (Macro): 0.3955433171646294
-INFO: F1 Score (Micro): 0.5066273932253313
-INFO: F1 Score (Weighted): 0.4404764794576529
+     [0.33595285 0.66208251 0.00196464]
+     [0.44705882 0.53529412 0.01764706]]
+    ```
+ 
+    * Accuracy: 0.5066273932253313
+    * F1 Score (Macro): 0.3955433171646294
+    * F1 Score (Micro): 0.5066273932253313
+    * F1 Score (Weighted): 0.4404764794576529
 
 ### Log 5 - Aug 15 (CNN Experiments)
 #### Parameters
@@ -272,9 +281,9 @@ INFO: F1 Score (Weighted): 0.4404764794576529
   
   ##### 512 Dense Layer (TODO)
     * Accuracy: 0.4657332350773766
-INFO: F1 Score (Macro): 0.40030695080906825
-INFO: F1 Score (Micro): 0.4657332350773766
-INFO: F1 Score (Weighted): 0.4287160127389453
+* F1 Score (Macro): 0.40030695080906825
+* F1 Score (Micro): 0.4657332350773766
+* F1 Score (Weighted): 0.4287160127389453
     * Confusion matrix:
     ```
     [[0.39489194 0.49115914 0.11394892]
