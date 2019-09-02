@@ -101,12 +101,15 @@ def convert_nums_to_words(txt):
     # RETURN format: an array of words ['four', 'point', 'two'] or ['original_word']
     def num_2_word(word):
         processed_word = re.sub('[^0-9a-zA-Z.]+', '', word)  # All non-alphanumeric (or period) to empty str
-        try:
-            word_rep = num2words(processed_word)  # ex. forty-two
-            word_rep = keep_alphanumeric(word_rep) # ex. forty two
-            return word_rep.split()
-        except Exception:
-            return word.split()
+        if re.search('[a-zA-Z]', processed_word) is None and len(processed_word.strip()) > 0:
+            # No characters in string, could be a number
+            try:
+                word_rep = num2words(processed_word)  # ex. forty-two
+                word_rep = keep_alphanumeric(word_rep)  # ex. forty two
+                return word_rep.split()
+            except Exception:
+                return word.split()
+        return word.split()
 
     tokens = tokenize_by_word(txt)
     return ' '.join([processed for token in tokens for processed in num_2_word(token)])

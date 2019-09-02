@@ -1,6 +1,8 @@
 import re
 import time
 
+from symspellpy.symspellpy import SymSpell
+
 from nltk import ne_chunk, Tree
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
@@ -46,7 +48,6 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
     '''
     for j, (str_claim, str_claimant, article_ids, label) in enumerate(zip(claims, claimants, related_articles, labels)):
 
-        log(j)
         # Tracking use only
         if j % 1000 == 0 and j != 0:
             now = time.time()
@@ -62,6 +63,8 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
         '''
         claim = str_claimant + ' ' + str_claim
         claim = clean_txt(claim)
+
+        log(f"Claim: {claim}")
 
         '''
         Process articles
@@ -197,6 +200,30 @@ def get_avg_vec(vecs):
 # Returns 0/1 credibility from ArticleCredibilityPAC
 def get_credibility(article, credibility_model):
     return credibility_model.predict([article], predict_args={})[0]
+
+
+def clean_txt_new_methods(txt):
+    # Spell check last
+    checker = get_spellchecker()
+    txt = correct_spelling(txt, checker)
+
+    return txt
+
+
+def get_spellchecker(dict_path='./assets/spell_check_dictionary.txt'):
+    checker = SymSpell()
+    checker.load_dictionary(dict_path, 0, 1)
+    return checker
+
+
+def correct_spelling(txt, checker, max_edit_dist=2):
+    suggestions = checker.lookup_compound(
+        phrase=txt,
+        max_edit_distance=max_edit_dist,
+        ignore_non_words=True,
+        transfer_casing=True
+    )
+    return ' '.join([suggestion.term for suggestion in suggestions])
 
 
 # Does basic preprocessing on a string sentence to make it vectorization friendly
