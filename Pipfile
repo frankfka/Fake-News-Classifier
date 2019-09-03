@@ -14,7 +14,7 @@ scikit-learn = "*"
 nltk = "*"
 matplotlib = "*"
 num2words = "*"
-rmdl = "*"
+symspellpy = "*"
 
 [requires]
 python_version = "3.7"

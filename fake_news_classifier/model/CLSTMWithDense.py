@@ -186,4 +186,4 @@ class CLSTMWithDense(FNCModel):
 
     # Save model to disk
     def save(self, path):
-        pass
+        self.model.save(path)

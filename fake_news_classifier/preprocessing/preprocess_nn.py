@@ -1,6 +1,7 @@
 import re
 import time
 
+from normalise import normalise
 from symspellpy.symspellpy import SymSpell
 
 from nltk import ne_chunk, Tree
@@ -9,7 +10,7 @@ import numpy as np
 
 import fake_news_classifier.const as const
 from fake_news_classifier.preprocessing.text_util import tokenize_by_sentence, tokenize_by_word, clean_sentence, \
-    analyze_pos, clean_tokenized, keep_alphanumeric, convert_nums_to_words
+    analyze_pos, clean_tokenized, keep_alphanumeric, convert_nums_to_words, expand_contractions
 from fake_news_classifier.util import log
 
 """
@@ -18,7 +19,7 @@ If the dataset changes, only the preprocessors need to change.
 """
 
 
-def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True, credibility_model=None):
+def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, spellcheck=None, use_ngrams=True, credibility_model=None):
     """
     Given the raw FNC data, return 3 lists of (text, other_text (supporting info), and labels)
         - Claims are appended with claimant
@@ -30,6 +31,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
     """
 
     # Raw Data
+    uids = list(json_df[const.PKL_CLAIM_ID])
     claims = json_df[const.PKL_CLAIM]
     claimants = json_df[const.PKL_CLAIMANT]
     labels = json_df[const.PKL_LABEL]
@@ -62,9 +64,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
             - Keep case - may be important
         '''
         claim = str_claimant + ' ' + str_claim
-        claim = clean_txt(claim)
-
-        log(f"Claim: {claim}")
+        claim = clean_txt(claim, spellcheck)
 
         '''
         Process articles
@@ -80,7 +80,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
         if credibility_model is not None:
             for article in articles:
                 credibility = get_credibility(article, credibility_model)
-                support_txt = get_relevant_info(claim, [article], vectorizer, max_seq_len, use_ngrams)
+                support_txt = get_relevant_info(claim, [article], vectorizer, max_seq_len, spellcheck, use_ngrams)
                 # Add to list
                 credibilities.append(credibility)
                 processed_claims.append(claim)
@@ -89,7 +89,7 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
 
         else:
             # If we are not using credibility model, construct support text from all articles
-            support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len, use_ngrams)
+            support_txt = get_relevant_info(claim, articles, vectorizer, max_seq_len, spellcheck, use_ngrams)
             # Add to list
             processed_claims.append(claim)
             supporting_info.append(support_txt)
@@ -97,12 +97,12 @@ def preprocess_nn(json_df, articles_df, vectorizer, max_seq_len, use_ngrams=True
 
     # Return what's appropriate
     if credibility_model is not None:
-        return processed_claims, supporting_info, final_labels, credibilities
+        return uids, processed_claims, supporting_info, final_labels, credibilities
     else:
-        return processed_claims, supporting_info, final_labels
+        return uids, processed_claims, supporting_info, final_labels
 
 
-def get_relevant_info(claim, articles, vectorizer, max_seq_len, use_ngrams):
+def get_relevant_info(claim, articles, vectorizer, max_seq_len, spellcheck, use_ngrams):
     """
     Returns the most relevant sentences relating to a claim using the average vectors of words and cosine similarity
     - Extra whitespace is trimmed and removed
@@ -126,7 +126,7 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len, use_ngrams):
         '''
         for sentence in sentences:
             # Basic cleaning on sentence
-            sentence = clean_txt(sentence)
+            sentence = clean_txt(sentence, spellcheck)
             # Don't process for sentences less than 40 characters long - this usually means improper sentences/words
             if len(sentence) < 40:
                 continue
@@ -149,7 +149,7 @@ def get_relevant_info(claim, articles, vectorizer, max_seq_len, use_ngrams):
     for similarity, sentence in sorted_sents:
         if num_words >= max_seq_len:
             break
-        article_info += ' |SEP| ' + sentence  # Add a separator
+        article_info += ' || ' + sentence  # Add a separator
         num_words += len(sentence.split())
     return article_info
 
@@ -202,15 +202,7 @@ def get_credibility(article, credibility_model):
     return credibility_model.predict([article], predict_args={})[0]
 
 
-def clean_txt_new_methods(txt):
-    # Spell check last
-    checker = get_spellchecker()
-    txt = correct_spelling(txt, checker)
-
-    return txt
-
-
-def get_spellchecker(dict_path='./assets/spell_check_dictionary.txt'):
+def get_spellchecker(dict_path='./preprocessing/assets/spell_check_dictionary.txt'):
     checker = SymSpell()
     checker.load_dictionary(dict_path, 0, 1)
     return checker
@@ -226,12 +218,22 @@ def correct_spelling(txt, checker, max_edit_dist=2):
     return ' '.join([suggestion.term for suggestion in suggestions])
 
 
+# TODO: issues:
+# - No. 1 -> No one
+# - Try removing stopwords?
+
 # Does basic preprocessing on a string sentence to make it vectorization friendly
 # - Converts numbers -> word representation (42 to fourty two)
-# - Strips all except for alphanumeric
+# - Strips pure punctuation
 def clean_txt(txt):
     txt = convert_nums_to_words(txt)
-    txt = keep_alphanumeric(txt)
+    txt = expand_contractions(txt)
+    txt = clean_sentence(
+        txt,
+        remove_punctuation=True,
+        remove_stopwords=False,
+        lowercase=False
+    )
     return txt
 
 

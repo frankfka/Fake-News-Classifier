@@ -56,7 +56,7 @@ class GensimVectorizer(object):
                     idx += 3
                     continue  # Don't consider bi-grams/uni-grams
             # Try bi-grams
-            if idx + 1 < num_words:
+            if idx + 1 < num_words and use_ngrams:
                 bigram = words[idx] + '_' + words[idx + 1]  # ex. donald_trump
                 vec = self.get_word_vec(bigram)
                 if vec is not None:

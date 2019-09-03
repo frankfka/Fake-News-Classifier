@@ -1,12 +1,18 @@
 import re
 import string
 import nltk
+import contractions
 from num2words import num2words
 from nltk.corpus import wordnet as wn
 from nltk import WordNetLemmatizer, pos_tag, word_tokenize, sent_tokenize
 from nltk.corpus import stopwords
 
 nltk.download('popular')
+nltk.download('wordnet')
+nltk.download('brown')
+nltk.download('names')
+nltk.download('averaged_perceptron_tagger')
+nltk.download('universal_tagset')
 
 
 # Tokenize by Word
@@ -58,10 +64,15 @@ def clean_tokenized(
         set_to_remove = set_to_remove.union(string.punctuation)
 
     # Process and return
-    if lowercase:
-        return [w.lower() for w in tokenized if w not in set_to_remove]
-    else:
-        return [w for w in tokenized if w not in set_to_remove]
+    processed_tokens = []
+    for tok in tokenized:
+        tok = tok.strip()
+        if tok not in set_to_remove and len(tok) > 0:
+            if lowercase:
+                processed_tokens.append(tok.lower())
+            else:
+                processed_tokens.append(tok)
+    return processed_tokens
 
 
 # Tags POS's a word-tokenized document
@@ -113,3 +124,8 @@ def convert_nums_to_words(txt):
 
     tokens = tokenize_by_word(txt)
     return ' '.join([processed for token in tokens for processed in num_2_word(token)])
+
+
+# Expands contractions: ex. We'll -> we will
+def expand_contractions(txt):
+    return contractions.fix(txt, slang=False)

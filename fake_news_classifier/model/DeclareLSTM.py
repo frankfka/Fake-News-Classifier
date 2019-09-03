@@ -2,7 +2,7 @@ from keras import Model, Input
 from keras.backend import mean
 from keras.callbacks import TensorBoard, EarlyStopping
 from keras.layers import Bidirectional, LSTM, Concatenate, Dense, Dropout, \
-    RepeatVector, Lambda, Dot, Activation
+    RepeatVector, Lambda, Dot, Activation, Conv1D, MaxPooling1D
 from keras.optimizers import Adam
 from keras.utils import to_categorical
 from keras_preprocessing.sequence import pad_sequences
@@ -70,23 +70,31 @@ class DeclareLSTM(FNCModel):
 
         '''
         One side of the network
+        - Pass article through a bidirectional LSTM
+        '''
+        cnn = Conv1D(
+            filters=256,
+            kernel_size=3,
+            activation='relu',
+            input_shape=input_shape
+        )(txt_two_input)
+        # cnn = Dropout(0.5)(cnn)
+        cnn = MaxPooling1D()(cnn)
+        lstm = Bidirectional(LSTM(lstm_num_units, return_sequences=True), merge_mode='concat')(cnn)
+        lstm_model = Model([txt_two_input], lstm)
+
+        '''
+        Other side of the network
         - Take the mean of the input vectors, repeat it by seq_len
         - Concatenate with the article vectors
         - Pass through a dense NN and an activation
         '''
         mean_layer = Lambda(lambda x: mean(x, axis=-2))(txt_one_input)
-        txt_one_mean = RepeatVector(seq_len)(mean_layer)
-        attn_input = Concatenate()([txt_one_mean, txt_two_input])
-        attn_nn = Dense(lstm_num_units * 2, activation='relu')(attn_input)
+        txt_one_mean = RepeatVector(int(cnn.shape[1]))(mean_layer)
+        attn_input = Concatenate()([txt_one_mean, cnn])
+        attn_nn = Dense(128, activation='relu')(attn_input)
         attn_nn = Activation('softmax')(attn_nn)
         attn_model = Model([txt_one_input, txt_two_input], attn_nn)
-
-        '''
-        Other side of the network
-        - Pass article through a bidirectional LSTM
-        '''
-        lstm = Bidirectional(LSTM(lstm_num_units, return_sequences=True), merge_mode='concat')(txt_two_input)
-        lstm_model = Model([txt_two_input], lstm)
 
         '''
         Final conjoined network

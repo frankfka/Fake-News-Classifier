@@ -1,6 +1,6 @@
 import pandas as pd
 
-from fake_news_classifier.const import TEXT_TWO_IDX, TEXT_ONE_IDX, LABEL_IDX, CRED_IDX
+from fake_news_classifier.const import TEXT_TWO_IDX, TEXT_ONE_IDX, LABEL_IDX, CRED_IDX, CLAIM_ID_IDX
 from fake_news_classifier.util import log
 
 
@@ -42,12 +42,13 @@ class FNCData(object):
     - TODO: Can incorporate preprocessing, once we finalize
     """
 
-    def __init__(self, list_of_txt, other_list_of_txt, list_of_labels, vectorizer, max_seq_len, max_label_bias=None,
-                 list_of_cred=None):
+    def __init__(self, uids, list_of_txt, other_list_of_txt, list_of_labels, vectorizer, max_seq_len,
+                 max_label_bias=None, list_of_cred=None):
         creds = [None] * len(list_of_labels)
         if list_of_cred is not None:
             creds = list_of_cred
         self.data = pd.DataFrame(data={
+            CLAIM_ID_IDX: uids,
             TEXT_ONE_IDX: list_of_txt,
             TEXT_TWO_IDX: other_list_of_txt,
             CRED_IDX: creds,
@@ -69,12 +70,14 @@ class FNCData(object):
         if idx is not None:
             # Limit to certain indicies
             sample_data = sample_data.iloc[idx, :]
+        uids = sample_data[CLAIM_ID_IDX]
         texts = sample_data[TEXT_ONE_IDX]
         other_texts = sample_data[TEXT_TWO_IDX]
         creds = sample_data[CRED_IDX]
         sample_labels = sample_data[LABEL_IDX]
         if vectorize:
             return (
+                uids,
                 self.vectorizer.transform_list_of_txt(texts, self.max_seq_len, use_ngrams=use_ngrams),
                 self.vectorizer.transform_list_of_txt(other_texts, self.max_seq_len, use_ngrams=use_ngrams),
                 creds,
@@ -82,6 +85,7 @@ class FNCData(object):
             )
         else:
             return (
+                uids,
                 texts,
                 other_texts,
                 creds,
